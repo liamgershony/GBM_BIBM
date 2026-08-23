@@ -140,6 +140,45 @@ def extract_links(html: str, base_url: str) -> list[tuple[str, str]]:
 
 
 # --------------------------------------------------------------------------
+# identifier normalisation
+# --------------------------------------------------------------------------
+
+# Tokens that mean "no identifier" when they appear in an ID or grouping column.
+# GSE174554's GEO `pair#` and Wang et al. Supplementary Table 1's `Pair#` BOTH use
+# the literal string "NA" for unpaired specimens.
+NULL_ID_TOKENS = frozenset({"", "NA", "N/A", "NONE", "NULL", "-", "."})
+
+
+def read_id_column(value) -> str | None:
+    """Normalise one identifier cell to a real id, or None if it means 'absent'.
+
+    Use this for EVERY column whose values are used to group or join records --
+    patient ids, pair numbers, specimen ids. Never compare a raw cell directly.
+
+    Why this exists. A literal "NA" left in a grouping column is not inert: it is a
+    valid dict key, so every unpaired specimen collapses into one group. During
+    cohort exploration this fabricated a patient TWICE, in two separate files:
+
+      * GEO `pair#`      -- 15 specimens fused into one "patient" that appeared to
+                            hold 3 primaries and 9 recurrents, inflating the
+                            matched-pair count from 30 to 31.
+      * Supplementary `Pair#` -- 10 specimens fused the same way, presenting as a
+                            pair the GEO scheme had "lost" and again giving 31.
+
+    Both times the corruption surfaced as a plausible *finding* rather than as an
+    error, which is exactly why it must be handled in one shared place instead of
+    at each call site.
+
+    Returns None (not "") so that a missing id is falsy AND distinguishable from a
+    genuine empty-string id, and so csv writers emit a blank rather than "None".
+    """
+    if value is None:
+        return None
+    s = str(value).strip()
+    return None if s.upper() in NULL_ID_TOKENS else s
+
+
+# --------------------------------------------------------------------------
 # hashing
 # --------------------------------------------------------------------------
 

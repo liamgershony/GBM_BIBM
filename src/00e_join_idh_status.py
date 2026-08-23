@@ -16,10 +16,14 @@ Usage:  python3 src/00e_join_idh_status.py
 from __future__ import annotations
 
 import csv
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
 import openpyxl
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _download_utils import read_id_column  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 MANIFEST = REPO / "results" / "tables" / "sample_manifest.csv"
@@ -41,11 +45,11 @@ def read_supp_table1() -> dict[str, dict]:
         def get(col):
             i = idx.get(col)
             return r[i] if i is not None and i < len(r) else ""
-        sid = get("ID")
+        sid = read_id_column(get("ID"))
         if sid:
             out[sid] = {
                 "supp_stage": get("Stage"),
-                "supp_pair": get("Pair#"),
+                "supp_pair": read_id_column(get("Pair#")) or "",
                 "supp_diagnosis": get("Diagnosis"),
                 "idh": get("IDH"),
                 "age": get("Age"),

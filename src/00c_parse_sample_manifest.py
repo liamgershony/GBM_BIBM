@@ -18,8 +18,12 @@ from __future__ import annotations
 import csv
 import gzip
 import re
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _download_utils import read_id_column  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 SOFT_GZ = REPO / "data" / "raw" / "GSE174554" / "GSE174554_family.soft.gz"
@@ -78,17 +82,6 @@ def characteristic(chars: list[str], key: str) -> str:
     return ""
 
 
-def _clean_pair(value: str) -> str:
-    """GEO records some samples with a literal 'NA' in pair#.
-
-    That is an absent pairing, not a patient identifier. Left as a string it
-    groups every such sample into one fabricated patient, which would corrupt any
-    downstream patient-level grouping. Normalised to empty here; the untouched
-    value is kept in patient_pair_raw.
-    """
-    return "" if value.strip().upper() in {"NA", "N/A", "NONE", ""} else value.strip()
-
-
 def sample_id_from_title(title: str) -> str:
     """Titles look like 'GBM SF10099_snRNA' or 'GBM SF12704v2_snRNA'.
 
@@ -135,7 +128,7 @@ def main() -> int:
             "library_strategy": r.get("library_strategy", ""),
             "sample_type": r.get("sample_type", ""),
             "source_name": r.get("source_name", ""),
-            "patient_pair": _clean_pair(characteristic(chars, "pair#")),
+            "patient_pair": read_id_column(characteristic(chars, "pair#")) or "",
             "patient_pair_raw": characteristic(chars, "pair#"),
             "progression": characteristic(chars, "progression"),
             "diagnosis": characteristic(chars, "diagnosis"),

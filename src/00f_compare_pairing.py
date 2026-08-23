@@ -20,10 +20,14 @@ Usage:  python3 src/00f_compare_pairing.py
 from __future__ import annotations
 
 import csv
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 import openpyxl
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _download_utils import read_id_column  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 MANIFEST = REPO / "results" / "tables" / "sample_manifest.csv"
@@ -41,22 +45,11 @@ def read_supp_table1() -> dict[str, dict]:
     header, body = rows[0], rows[1:]
     idx = {n: i for i, n in enumerate(header)}
     get = lambda r, c: (r[idx[c]] if c in idx and idx[c] < len(r) else "")
-    return {get(r, "ID"): {"stage": get(r, "Stage"),
-                           "pair": clean_pair(get(r, "Pair#")),
+    return {read_id_column(get(r, "ID")): {"stage": get(r, "Stage"),
+                           "pair": read_id_column(get(r, "Pair#")) or "",
                            "pair_raw": get(r, "Pair#"),
                            "idh": get(r, "IDH"), "diagnosis": get(r, "Diagnosis")}
-            for r in body if get(r, "ID")}
-
-
-def clean_pair(value: str) -> str:
-    """Supplementary Table 1 uses a literal 'NA' in Pair#, exactly as GEO does.
-
-    Left as a string it fuses every unpaired specimen into one fabricated patient
-    -- here 3 primaries and 7 recurrents -- which then looks like a legitimate
-    matched pair and inflates the count. Same trap as GEO's pair#; both records
-    must be normalised or neither.
-    """
-    return "" if value.strip().upper() in {"NA", "N/A", "NONE", ""} else value.strip()
+            for r in body if read_id_column(get(r, "ID"))}
 
 
 def norm_stage(s: str) -> str:

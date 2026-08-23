@@ -54,6 +54,52 @@ deviation list has a single source. They are NOT post-hoc changes.
 
 <!-- Append new entries below this line. -->
 
+## 2026-08-23 23:58 UTC — Discovery cohort rule agreed (CLAUDE.md §10.1 requirement satisfied)
+
+- **Affects:** definition of the discovery cohort; `n_patients` and every quantity
+  derived from it.
+- **Decision:** `docs/COHORT_RULE.md` is **agreed by Liam Gershony (Lane 1) and
+  Arnav Vishwakarma (Lane 2)**, 23 Aug 2026. CLAUDE.md §10.1 requires the subset to
+  be defined by a written, reproducible rule agreed by both lanes *before anything
+  downstream is computed*. That condition is now met. No preprocessing had been run
+  at the time of this entry.
+- **Authorised by:** Liam Gershony and Arnav Vishwakarma.
+- **Paper:** Methods (cohort definition), and Results (cohort flow, Figure 1).
+
+**The rule.** A patient enters the discovery cohort if all four hold:
+
+- **(a)** Wang et al. **Supplementary Table 1 `Pair#`** links the patient to at
+  least one `Primary` and at least one `Recurrent` specimen. GEO's `pair#`
+  characteristic is recorded as a cross-check, **not** as the source of pairing.
+- **(b)** Both specimens are present in **GSE174554 as human snRNA-seq** GSMs.
+- **(c)** **IDH-wildtype** per Supplementary Table 1.
+- **(d)** **≥100 usable nuclei at both timepoints after QC.**
+
+Multiple specimens at one timepoint are **pooled**, with `sample_id` retained as a
+batch key.
+
+**Pre-QC ceiling: n = 29.** Clauses (a)–(c) are evaluable from metadata alone and
+yield 29 matched pairs. Clause (d) requires Day 1 QC and **can only reduce** this
+number. The realised n is therefore not known at the time of this entry, and every
+formula that depends on it — fold count, the Nadeau-Bengio correction
+`1/n + 1/(n-1)`, and the §6.2 evaluability floor `floor(n/2) + 1` — is evaluated at
+runtime against the realised value. **The frozen config is not edited.**
+
+**Explicit exclusion — one IDH-mutant pair.** Supplementary Table 1 records
+**`SF8963` (Primary) and `SF12165` (Recurrent)**, GEO `pair#` #33, as **IDH mutant**
+despite a diagnosis of Glioblastoma. This pair satisfies clauses (a) and (b) and is
+excluded solely by clause (c). It is the only difference between the 30 matched
+pairs recoverable from the deposit and the 29 entering the cohort. Recorded here so
+the 30 → 29 step is traceable to a stated criterion and not to an unexplained count.
+
+**Note on the deposit.** GEO's series summary claims 40 matched IDH-wildtype pairs.
+That figure is not reproducible from either pairing record. Supplementary Table 1
+supports 36 matched pairs flagged `snRNA-seq = Y`, but only 30 have both specimens
+present in GEO as human snRNA-seq GSMs — 86 specimens are flagged snRNA-seq in the
+paper while 78 appear as such in the deposit. This is a deposit-versus-publication
+discrepancy, not an analysis choice, and belongs in the paper's cohort description.
+
+
 ## 2026-08-23 23:25 UTC — Pre-specified cascade if the discovery cohort has n != 19 patients
 
 - **Affects:** `cross_validation.n_folds`, `variance_correction`, the analysis
