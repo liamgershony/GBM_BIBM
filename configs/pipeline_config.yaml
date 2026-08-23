@@ -1,0 +1,333 @@
+# ============================================================================
+# pipeline_config.yaml  —  FROZEN
+#
+# Committed 2026-08-23, BEFORE any dataset was downloaded or any nucleus was
+# processed. The git timestamp of this file's first commit is the pre-registration
+# evidence for every threshold below.
+#
+# DO NOT EDIT to make a result look better. If a parameter genuinely must change,
+# append an entry to DEVIATIONS.md with reason, timestamp and authorisation, then
+# change it. Never edit silently. (CLAUDE.md §7.1)
+#
+# Source of truth for these values: CLAUDE.md §5 (Revision 2, 23 Aug 2026).
+# ============================================================================
+
+meta:
+  protocol_revision: 2
+  frozen_on: "2026-08-23"
+  source_of_truth: "CLAUDE.md §5"
+  # Confirmatory family is H1 and H3 only. H2/H4/H5 are out of scope.
+  confirmatory_hypotheses: ["H1", "H3"]
+
+# ----------------------------------------------------------------------------
+# Reproducibility
+# ----------------------------------------------------------------------------
+seed:
+  # Every stochastic step reads its seed from here. No hard-coded seeds in src/.
+  master: 42
+  # Bootstrap/resample draws use master + resample_index, so draws are distinct
+  # from each other but exactly replayable. (CLAUDE.md §7.7)
+  bootstrap_seed_rule: "master + resample_index"
+
+# ----------------------------------------------------------------------------
+# Quality control  —  single-nucleus RNA-seq (snRNA-seq), not scRNA-seq
+# ----------------------------------------------------------------------------
+qc:
+  # Below this, the barcode is an empty or near-empty droplet.
+  min_genes_per_nucleus: 500
+
+  # Revision 2 change: was 0.20. Nuclear preparations are depleted of mitochondrial
+  # transcripts by design, so a 20% ceiling admits contaminated nuclei rather than
+  # excluding them. 5% is the correct ceiling for nuclei.
+  max_mito_fraction: 0.05
+
+  # Doublet detection. Run per sample, never pooled across samples.
+  doublet_method: "scrublet"
+
+  # The authors' own malignant vs non-malignant annotation is authoritative.
+  # Do not roll our own classifier. (CLAUDE.md §4)
+  tumor_normal_annotation: "GSE174554_Tumor_normal_metadata.txt"
+
+# ----------------------------------------------------------------------------
+# Integration and cell state
+# ----------------------------------------------------------------------------
+integration:
+  method: "harmony"
+  batch_key: "sample_id"
+
+cell_state:
+  # Neftel four-state signatures from the published supplementary tables.
+  signature_set: "neftel_2019"
+  states: ["MES", "AC", "OPC", "NPC"]
+
+# ----------------------------------------------------------------------------
+# Features for Stage B
+#
+# HARD RULE: X must never contain PCA coordinates, transport mass, or abundance
+# statistics. Those are RAS's own inputs; including them lets the model trivially
+# reconstruct the target. (CLAUDE.md §3.6)
+# ----------------------------------------------------------------------------
+features:
+  # Re-derived INSIDE each training fold, never once on the full matrix.
+  # Deriving HVGs globally leaks held-out patients into feature selection.
+  n_hvg: 2000
+  hvg_scope: "per_training_fold"
+
+  blocks:
+    - "hvg_expression"
+    - "hallmark_pathway_scores"   # MSigDB
+    - "dorothea_regulon_scores"   # omnipath via decoupler
+
+  forbidden_blocks:
+    - "pca_coordinates"
+    - "transport_mass"
+    - "abundance_statistics"
+
+# ----------------------------------------------------------------------------
+# Metacell aggregation
+#
+# Stage B fits metacells, not individual nuclei. ~30x compute reduction that also
+# directly reduces within-patient pseudoreplication. A deliberate design choice,
+# never described as a shortcut. (CLAUDE.md §3.8)
+# ----------------------------------------------------------------------------
+metacells:
+  target_size_nuclei: 30
+  method: "seacells"
+  # Pre-declared contingency: if SEACells has not converged by end of Day 3,
+  # substitute k-means within each patient-timepoint and log it in DEVIATIONS.md.
+  fallback_method: "kmeans_within_patient_timepoint"
+  # Metacells are built within a patient-timepoint. Never across patients.
+  group_keys: ["patient_id", "timepoint"]
+  # Stage A residuals are per-nucleus; Stage B fits per-metacell. This is the
+  # agreed aggregation rule and must not be improvised. (CLAUDE.md §10.3)
+  residual_aggregation: "mean"
+
+# ----------------------------------------------------------------------------
+# Copy number / clone calling
+# ----------------------------------------------------------------------------
+infercnv:
+  # New in Revision 2. Caps runtime; applied per patient by seeded subsample.
+  max_nuclei_per_patient: 1500
+  reference_cells: "non_malignant_from_tumor_normal_metadata"
+  clone_clustering: "leiden"
+  # RISK (CLAUDE.md §10.2): if clone assignment on S is degenerate — e.g. one clone
+  # per patient — Tier C-disjoint carries no information and H3 cannot be tested.
+  # Check this on Day 2, not Day 4.
+  degeneracy_check_day: 2
+
+# ----------------------------------------------------------------------------
+# Tier C-disjoint chromosome set S
+#
+# S = {chr7, chr9p, chr10}: the canonical GBM copy-number chromosomes
+# (chr7 gain, chr10 loss, CDKN2A deletion at 9p21).
+#
+# Two distinct uses, and they must stay in lockstep:
+#   1. inferCNV signal is RESTRICTED to S when computing G and Ab_clone.
+#   2. Stage B's feature matrix X EXCLUDES every gene located in S.
+#
+# NOTE: 9p is an ARM, not a whole chromosome. Genes on 9q remain eligible for
+# selection. Exclusion must be arm-aware or we discard signal for no benefit.
+# Enforced by tests/test_chr_disjoint.py, not by care. (CLAUDE.md §7.3)
+# ----------------------------------------------------------------------------
+disjoint_set_S:
+  gene_annotation_source: "cytoband_hg38"
+  regions:
+    - {chrom: "chr7",  arm: "both"}
+    - {chrom: "chr9",  arm: "p"}
+    - {chrom: "chr10", arm: "both"}
+
+# ----------------------------------------------------------------------------
+# RAS — Recurrence Association Score
+#
+# Weights are fixed a priori and NEVER fit against any outcome. Fitting them would
+# open an avoidable data-dependent leakage route. Equal weighting sacrifices some
+# predictive optimality to remove that risk entirely. (CLAUDE.md §3.3)
+# ----------------------------------------------------------------------------
+ras:
+  # Components are z-scored before weighting.
+  standardize: "zscore"
+
+  tier_a:
+    weights:
+      T: 0.25          # transcriptional similarity to patient-matched recurrent centroid
+      G: 0.25          # genomic compatibility (clone observed at recurrence): 0/1
+      O: 0.25          # optimal-transport mass to patient-matched recurrent metacells
+      Ab_state: 0.25   # log2 FC in Neftel-state abundance, primary -> recurrent
+
+  # Pre-declared contingency: if OT has not converged by end of Day 3, drop O and
+  # use Tier A-reduced with renormalised thirds. Named as such in the paper.
+  # Never silently drop a component. (CLAUDE.md §9.1)
+  tier_a_reduced:
+    weights:
+      T: 0.3333333333333333
+      G: 0.3333333333333333
+      Ab_state: 0.3333333333333333
+
+  tier_c_disjoint:
+    # Both components computed from inferCNV signal restricted to S.
+    weights:
+      G: 0.5
+      Ab_clone: 0.5
+
+  optimal_transport:
+    cost: "pca_euclidean"
+    # Hard stop: 6pm on Day 3 (Wed 26 Aug), then the fallback above fires.
+    hard_stop: "2026-08-26T18:00"
+
+# ----------------------------------------------------------------------------
+# Stage A — residualization
+#
+#   RAS_i = b0 + sum_k b_k * 1[state_i = k] + g * genotype_i + u_p(i) + e_i
+#
+# Residual meaning: more recurrence-like than you would expect knowing only this
+# cell's type, its mutations, and which patient it came from.
+# ----------------------------------------------------------------------------
+stage_a:
+  fixed_effects: ["cell_state", "genotype_egfr_amp"]
+  random_effects: ["patient_id"]
+  # Cross-fitted: for held-out patient p, fixed-effect coefficients are estimated
+  # on the other patients only, and p's random effect is predicted as 0 (standard
+  # mixed-model out-of-sample practice).
+  cross_fitting: "leave_one_patient_out"
+  heldout_random_effect: 0
+
+# ----------------------------------------------------------------------------
+# Stage B — discovery
+# ----------------------------------------------------------------------------
+stage_b:
+  # ElasticNet only. XGBoost dropped for compute — a declared deviation.
+  model: "elasticnet"
+  targets:
+    adjusted: "stage_a_residual"   # H3 arm
+    unadjusted: "ras_tier_a_raw"   # H1 arm only
+  # Declared deviation: alpha tuned once per outer fold and reused across that
+  # fold's bootstraps with warm starts, rather than full inner CV inside every
+  # bootstrap. Slightly understates selection variance.
+  alpha_tuning: "once_per_outer_fold_warm_start"
+
+# ----------------------------------------------------------------------------
+# Cross-validation and variance correction
+#
+# The unit is the PATIENT, not the cell: two cells from one patient are not
+# independent observations. No cell from a held-out patient may influence its own
+# prediction — including HVG selection, scaling, tuning, and stability resampling.
+# Enforced by tests/test_no_patient_leakage.py. (CLAUDE.md §7.2)
+# ----------------------------------------------------------------------------
+cross_validation:
+  scheme: "leave_one_patient_out"
+  group_key: "patient_id"
+
+  # PRE-SPECIFIED expectation, inherited from the protocol. The discovery subset
+  # does not yet exist as a defined set: it must be derived by a written,
+  # reproducible rule applied to the downloaded GSE174554 metadata, agreed by
+  # Lane 1 and Lane 2 BEFORE anything downstream is computed. (CLAUDE.md §10.1)
+  #
+  # If the rule yields a count other than 19, that is a DEVIATIONS.md entry —
+  # not a silent edit of this file. n_folds always equals the realised patient
+  # count, and the correction below is computed from that same count.
+  expected_n_patients: 19
+  n_folds: "equals_n_patients"
+
+variance_correction:
+  # Nadeau-Bengio: the folds share nearly all their training patients, so naive
+  # fold variance is badly optimistic. Applied to EVERY LOPO-derived interval.
+  method: "nadeau_bengio"
+  formula: "1/n_folds + 1/(n_folds - 1)"
+  # Value implied by expected_n_patients = 19, recorded for the paper.
+  expected_value: "1/19 + 1/18"
+
+# ----------------------------------------------------------------------------
+# Stability selection
+#
+# With 2,000 genes and ~19 patients, ElasticNet's exact gene list is unstable.
+# Resample patients, refit, keep genes chosen at or above threshold.
+# ----------------------------------------------------------------------------
+stability_selection:
+  # Revision 2 change: was 300. Reduced for compute — a declared deviation.
+  n_bootstraps: 100
+  resample_unit: "patient"
+  # 30% comes from published small-sample benchmarking, not from taste.
+  threshold_primary: 0.30
+  thresholds_sensitivity: [0.50, 0.80]
+
+# ----------------------------------------------------------------------------
+# Inference
+#
+# Bonferroni divides by the size of the confirmatory family. With H2 out of scope
+# the family is {H1, H3}, so per-hypothesis alpha is 0.05/2 = 0.025 — not the
+# 0.0167 in the original protocol. (CLAUDE.md §5)
+# ----------------------------------------------------------------------------
+inference:
+  confirmatory_alpha: 0.025
+  family_size: 2
+
+# H3 — CORE DELIVERABLE. Do genes selected under Tier A overlap genes selected
+# under Tier C-disjoint above a permutation-derived chance baseline?
+h3_circularity:
+  statistic: "jaccard"
+  n_permutations: 1000
+  alpha: 0.025
+
+# H1 — STRETCH. Does the confound-adjusted model replicate externally better than
+# the unadjusted baseline? All three outcomes are valid and reportable, including
+# an interval that includes zero. A wide honest interval is a result.
+h1_ablation:
+  # Revision 2 change: was 1000. Pre-specified as reduced for compute.
+  n_resamples: 200
+  resample_unit: "patient"
+  paired: true
+  alpha: 0.025
+  decision_rule: "mean_delta_R >= 0.10 AND interval excludes 0"
+  # Day 5 (Fri 28 Aug): not running by 10pm -> H1 is formally abandoned.
+  launch_deadline: "2026-08-28T22:00"
+
+# ----------------------------------------------------------------------------
+# CGGA replication
+#
+# MANDATORY CAVEAT, every time this is discussed: CGGA replication is bulk-level
+# supporting evidence only. It is never single-cell validation of the specific
+# persister population a gene was discovered in. (CLAUDE.md §4.3)
+# ----------------------------------------------------------------------------
+cgga_replication:
+  primary_cohort: "mRNAseq_693"     # GBM: 140 primary, 109 recurrent
+  supportive_cohort: "mRNAseq_325"  # GBM: 85 primary, 24 recurrent, 30 secondary
+
+  test: "logistic_regression"
+  outcome: "recurrence_status"
+  covariates: ["sequencing_platform", "idh_status", "tumor_purity"]
+  # If tumour purity does not ship with the download, drop it and declare the
+  # change. Do NOT substitute a proxy without saying so. (CLAUDE.md §10.4)
+  optional_covariates: ["tumor_purity"]
+
+  raw_p_threshold: 0.05             # in mRNAseq_693
+  # BH applied across all tested genes JOINTLY, not per-cohort.
+  fdr_method: "benjamini_hochberg"
+  fdr_level: 0.05
+  fdr_scope: "joint_across_cohorts"
+
+  effect_size:
+    min_abs_log2fc: 0.25
+    odds_ratio_null_band: [0.8, 1.25]   # must fall OUTSIDE this band
+
+  # Sign in discovery must match sign in mRNAseq_693. mRNAseq_325 must not
+  # contradict; its significance is not independently required.
+  direction_must_match_cohort: "mRNAseq_693"
+  supportive_significance_required: false
+  # If the two batches significantly disagree in direction, the gene is excluded
+  # and reported separately as discordant — never silently dropped.
+  discordance_handling: "exclude_and_report_separately"
+
+# ----------------------------------------------------------------------------
+# Datasets — all open, no account, no DUA, no approval queue.
+# Verified 2026-08-23.
+# ----------------------------------------------------------------------------
+datasets:
+  discovery:
+    accession: "GSE174554"
+    assay: "snRNA-seq"     # single-nucleus. Say "single-nucleus" in all prose.
+  replication:
+    - "CGGA_mRNAseq_693"
+    - "CGGA_mRNAseq_325"
+  # Explicitly NOT used: GLASS (Synapse account + DUA), GSE174554 exome (not in
+  # the public deposit), spatial subcohort (out of scope).
+  excluded: ["GLASS", "GSE174554_exome", "spatial_subcohort"]
