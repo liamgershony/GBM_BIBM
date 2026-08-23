@@ -52,21 +52,40 @@ MANIFEST = DEST_DIR / ".download_manifest.json"
 LOGFILE = REPO / "logs" / "00_download.log"
 
 
-def suppl_index_url(accession: str) -> str:
+# GEO publishes a series under several sibling directories. suppl/ holds the
+# authors' uploaded matrices; soft/ and matrix/ hold GEO's own per-sample records.
+# The SOFT family file is the authoritative source for per-GSM characteristics --
+# organism, platform, library strategy, and the sample-level fields we need to
+# resolve patient and timepoint (CLAUDE.md 10.1).
+SUBDIRS = ("suppl", "soft", "matrix")
+
+
+def series_index_url(accession: str, subdir: str) -> str:
     """GEO nests series by accession prefix: GSE174554 -> GSE174nnn."""
     stem = accession[:-3] + "nnn"
-    return f"https://ftp.ncbi.nlm.nih.gov/geo/series/{stem}/{accession}/suppl/"
+    return f"https://ftp.ncbi.nlm.nih.gov/geo/series/{stem}/{accession}/{subdir}/"
 
 
 def discover(log) -> list[tuple[str, str]]:
-    """Read the supplementary file list from GEO. We never hardcode filenames."""
-    index = suppl_index_url(ACCESSION)
-    log(f"reading supplementary index: {index}")
-    files = extract_links(fetch_text(index, log=log), index)
-    files = [(n, u) for n, u in files if n not in NOT_DATA]
-    log(f"GEO lists {len(files)} supplementary file(s)")
-    for name, _ in sorted(files):
-        size = remote_size(_)
+    """Read the file list from every GEO subdirectory. Filenames are never guessed."""
+    files: list[tuple[str, str]] = []
+    for subdir in SUBDIRS:
+        index = series_index_url(ACCESSION, subdir)
+        log(f"reading {subdir}/ index: {index}")
+        try:
+            found = extract_links(fetch_text(index, log=log), index)
+        except Exception as e:
+            log(f"  {subdir}/ unavailable ({e}) -- skipping")
+            continue
+        # Drop server index pages and absolute links off-site (GEO footers).
+        found = [(n, u) for n, u in found
+                 if n not in NOT_DATA and u.startswith(index)]
+        log(f"  {subdir}/ lists {len(found)} file(s)")
+        files.extend(found)
+
+    log(f"GEO lists {len(files)} file(s) across {len(SUBDIRS)} subdirectories")
+    for name, url in sorted(files):
+        size = remote_size(url)
         log(f"  - {name}" + (f"  ({size:,} B)" if size else "  (size unreported)"))
     missing = REQUIRED_FILES - {_stem(n) for n, _ in files}
     if missing:

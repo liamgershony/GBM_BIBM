@@ -44,9 +44,6 @@ dependencies:
   - python-igraph=0.11.*
   - leidenalg=0.10.*          # Leiden clustering for clone calling
 
-  # --- CNV / genotype -----------------------------------------------------
-  - infercnvpy=0.4.*          # chr7 / chr9p / chr10 signal for Tier C-disjoint
-
   # --- optimal transport --------------------------------------------------
   - pot=0.9.*                 # RAS component O; hard stop end of Day 3
 
@@ -62,8 +59,15 @@ dependencies:
       # --- integration ----------------------------------------------------
       - harmonypy==0.0.10      # Harmony batch correction
 
+      # --- CNV / genotype -------------------------------------------------
+      # NOT on conda-forge or bioconda under any version — the first solve failed
+      # on `infercnvpy=0.4.*` for exactly this reason. PyPI only.
+      # 1.x pinned deliberately: decoupler 2.x reworked the API, and the numpy<2
+      # constraint above makes the older line the safer bet eight days out.
+      - infercnvpy==0.4.5      # chr7 / chr9p / chr10 signal for Tier C-disjoint
+
       # --- pathway / regulon scores for Stage B's X ------------------------
-      - decoupler==1.8.0
+      - decoupler==1.8.0       # 1.x API; 2.x is a rewrite
       - omnipath==1.0.8        # DoRothEA regulons
 
       # =====================================================================
