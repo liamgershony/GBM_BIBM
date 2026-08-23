@@ -1,0 +1,75 @@
+# GBM persister — pinned environment
+#
+# Platform this was resolved against: macOS 26.5 / Apple Silicon (osx-arm64),
+# conda 26.3 with mamba available. Build with:
+#
+#     mamba env create -f envs/environment.yml
+#     conda activate gbm-persister
+#
+# Version pins are best-known-good, not verified against a solve on this machine
+# yet. A pin that does not exist fails loudly at solve time, which is the
+# behaviour we want — it can never silently resolve to something else.
+#
+# NOTE: src/00_download.py and src/00b_download_cgga.py are stdlib-only by design
+# and do NOT need this environment. Downloads can proceed while this builds.
+
+name: gbm-persister
+
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+
+dependencies:
+  # --- interpreter --------------------------------------------------------
+  # 3.10 rather than 3.12: the two brittle packages below (SEACells, scCODA)
+  # have the widest wheel coverage here, and nothing we use needs 3.11+.
+  - python=3.10
+
+  # --- core numerics ------------------------------------------------------
+  # numpy <2 is a hard constraint, not caution: much of the single-cell stack
+  # (scrublet, infercnvpy, SEACells) still carries numpy 1.x ABI assumptions.
+  - numpy=1.26.*
+  - pandas=2.2.*
+  - scipy=1.13.*
+  - scikit-learn=1.5.*
+  - statsmodels=0.14.*        # Stage A mixed model (MixedLM) — see note below
+  - pyyaml=6.0.*              # reads configs/pipeline_config.yaml
+  - certifi                   # makes the download scripts' TLS fallback unnecessary
+
+  # --- single-cell core ---------------------------------------------------
+  - anndata=0.10.*
+  - scanpy=1.10.*             # includes sc.pp.scrublet — no separate scrublet pin
+  - h5py=3.11.*
+  - python-igraph=0.11.*
+  - leidenalg=0.10.*          # Leiden clustering for clone calling
+
+  # --- CNV / genotype -----------------------------------------------------
+  - infercnvpy=0.4.*          # chr7 / chr9p / chr10 signal for Tier C-disjoint
+
+  # --- optimal transport --------------------------------------------------
+  - pot=0.9.*                 # RAS component O; hard stop end of Day 3
+
+  # --- figures ------------------------------------------------------------
+  - matplotlib-base=3.9.*
+  - seaborn=0.13.*
+
+  # --- tests --------------------------------------------------------------
+  - pytest=8.3.*
+
+  - pip=24.*
+  - pip:
+      # --- integration ----------------------------------------------------
+      - harmonypy==0.0.10      # Harmony batch correction
+
+      # --- pathway / regulon scores for Stage B's X ------------------------
+      - decoupler==1.8.0
+      - omnipath==1.0.8        # DoRothEA regulons
+
+      # =====================================================================
+      # BRITTLE — see the notes below. If either of these blocks the Day 2
+      # critical path for more than an hour, comment it out and invoke the
+      # pre-declared contingency in DEVIATIONS.md rather than fighting it.
+      # =====================================================================
+      - git+https://github.com/dpeerlab/SEACells.git@v0.3.3
+      - sccoda==0.1.9
