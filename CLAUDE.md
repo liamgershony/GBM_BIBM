@@ -22,15 +22,14 @@ If you are ever unsure whether something is in scope, the answer is almost certa
 
 | Person | Lane | Owns |
 |---|---|---|
-| **Oren** | **Lane 1 — Data & preprocessing** | Everything from raw download to labelled, genotyped, metacell-aggregated AnnData. Then the CGGA replication harness and Figure 1. **This is the person you are usually talking to.** |
-| **Arnav** | Lane 2 — Modelling & statistics | RAS construction, Stage A residualization, Stage B, stability selection, the permutation test, leakage/disjointness tests, Figure 2. |
-| **Devarsh** | Lane 3 — Paper, figures, venue | IEEE template, all prose, references, page-count discipline, release forms and parent documentation. Also floats to help Lanes 1 and 2 when they are blocked. |
+| **Liam Gershony** | **Lane 1 — Data & preprocessing** | Everything from raw download to labelled, genotyped, metacell-aggregated AnnData. Then the CGGA replication harness and Figure 1. **This is the person you are usually talking to.** |
+| **Arnav Vishwakarma** | Lane 2 — Modelling & statistics | RAS construction, Stage A residualization, Stage B, stability selection, the permutation test, leakage/disjointness tests, Figure 2. |
+| **Devarsh Aswin** | Lane 3 — Paper, figures, venue | IEEE template, all prose, references, page-count discipline, release forms and parent documentation. Also floats to help Lanes 1 and 2 when they are blocked. |
 
 Each of us runs Claude Code in a separate clone of the same repo. This file is committed and shared, so all three sessions inherit the same rules.
 
 **Lane 2 works against simulated data until Day 3.** Arnav is writing and testing Stage A/B against a synthetic matrix with the same schema as the real object, so the modelling code is already debugged when Lane 1 hands over. If you are helping Lane 2, do not wait for real data. If you are helping Lane 1, the schema you produce must match what Lane 2 simulated — column names and dtypes agreed in writing, in `docs/SCHEMA.md`.
 
-**Open admin item:** the author list on the original protocol draft reads "Devarsh Aswin, Arnav Vishwakarma, and Liam Gershony." That does not match the current team. Devarsh must reconcile the author list before submission, and the affiliation must state that the first author is a high school student.
 
 ---
 
@@ -158,7 +157,7 @@ Stage B fits **metacells (~30 nuclei each, ~3,000 units), not individual nuclei 
 | Source | Access | Notes |
 |---|---|---|
 | **GSE174554** (GEO) | Open, anonymous FTP/HTTPS | Wang et al. 2022, *Nature Cancer*. 86 primary-recurrent matched specimens, **snRNA-seq**. 76 IDHwt; 52 carry matched-pair identifiers. Our discovery cohort. |
-| **`GSE174554_Tumor_normal_metadata.txt`** | Open, same series | The authors' own malignant vs non-malignant annotation. **Use this. Do not roll our own classifier.** |
+| **`GSE174554_Tumor_normal_metadata.txt.gz`** | Open, same series | The authors' own malignant vs non-malignant annotation. Served **gzipped** by GEO. **Use this. Do not roll our own classifier.** |
 | **CGGA mRNAseq_693** | Open, direct from cgga.org.cn | Read counts opened to public access June 2022. GBM: **140 primary, 109 recurrent**. Mandatory replication cohort. |
 | **CGGA mRNAseq_325** | Open, same portal | GBM: **85 primary, 24 recurrent, 30 secondary**. Supportive replication cohort. |
 | Neftel four-state signatures | Open | Published supplementary tables. |
@@ -253,6 +252,7 @@ These are not stylistic preferences. Violating any of them invalidates the paper
 7. **Every stochastic step reads its seed from the config.** Master seed 42. Bootstraps increment the seed by resample index for reproducible-but-distinct draws.
 8. **No causal language, ever.** No clinical-utility claims. No "we found the recurrence genes." Association only.
 9. **Declared deviations are fine; undeclared ones are not.** Reviewers punish silence, not honesty.
+10. **`data/interim/` holds unpacked-but-untransformed content** — for example the extracted contents of `GSE174554_RAW.tar`. It is gitignored, fully regenerable from `data/raw/` + `src/`, and **never edited in place**. It exists so that `data/raw/` stays a byte-exact mirror of what was published: unpacking an archive into `data/raw/` would break the immutability rule in 7.4 and destroy the correspondence between the deposit and our SHA256 record. Nothing in `data/interim/` is a reported number's source; it is an intermediate staging area only.
 
 ---
 
@@ -270,6 +270,7 @@ gbm-persister/
       GSE174554/
       CGGA/
       PROVENANCE.md              <- accession, download date, SHA256 per file
+    interim/                     <- unpacked, untransformed; gitignored (see 7.10)
     processed/                   <- generated, regenerable
       01_qc.h5ad
       02_integrated.h5ad
@@ -342,7 +343,7 @@ gbm-persister/
    **Check each region independently, not S as a whole.** Chr7 gain and chr10 loss are whole-chromosome events and will resolve fine from windowed expression. **CDKN2A deletion at 9p21 is often focal — on the order of a megabase — and inferCNV's window smoothing across ~100 genes can erase it entirely.** So 9p may contribute nothing, leaving clones defined off chr7 and chr10 alone. That is still workable — those are the canonical events — but it must be a Day 2 finding, not a Day 4 discovery. Before accepting `clone_catalog.csv`, verify that **each** of the three regions independently produces non-degenerate clone structure, and record per-region results. If 9p is uninformative, say so in the paper rather than implying all three regions contributed.
 3. **Metacell aggregation changes the Stage A/Stage B interface.** Stage A residuals are per-nucleus; Stage B fits per-metacell. The aggregation rule (mean residual per metacell) must be written down and agreed, not improvised.
 4. **CGGA covariate availability.** Tumour purity may not ship with the CGGA download. If it is absent, drop it from the covariate set and declare the change — do not substitute a proxy without saying so.
-5. **In-person attendance is mandatory.** The symposium is in Dallas, TX. At least one student author must attend and present or the paper does not enter the IEEE proceedings. High school authors additionally need a parent present, a signed release form, and a signed information document. Devarsh owns this; it must be settled with families this week, not after the 22 September notification.
+5. **In-person attendance is mandatory.** The symposium is in Dallas, TX. At least one student author must attend and present or the paper does not enter the IEEE proceedings. High school authors additionally need a parent present, a signed release form, and a signed information document. **The affiliation must state that the first author is a high school student** — this sets the page limit at 5 rather than 6, so it is a formatting constraint as well as a disclosure. Devarsh owns this; it must be settled with families this week, not after the 22 September notification.
 
 ---
 

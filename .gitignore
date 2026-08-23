@@ -3,6 +3,10 @@ data/raw/*
 !data/raw/PROVENANCE.md
 data/processed/*
 !data/processed/.gitkeep
+
+# Unpacked-but-untransformed content (CLAUDE.md 7.10). Regenerable from data/raw/.
+data/interim/*
+!data/interim/.gitkeep
 *.h5ad
 *.h5
 *.loom
@@ -27,3 +31,6 @@ venv/
 .DS_Store
 .vscode/
 .idea/
+
+# Run logs
+logs/
