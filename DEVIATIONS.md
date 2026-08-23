@@ -73,19 +73,21 @@ pre-specified *expectation*, not the operative definition. **The frozen config i
 not edited when n differs**; the realised n is reported in the paper alongside the
 expectation.
 
-**2. Evaluability floor.** The floor changes from **"10 of 19"** to
-**`ceil(n/2) + 1`**, evaluated against the realised n. "10 of 19" is recorded here
-as the pre-specified expectation. For n = 19 the new rule gives
-`ceil(19/2) + 1 = 11`, which is *stricter* than the original 10 — the rule is not a
-relaxation designed to keep a marginal cohort evaluable, and that is the point of
-fixing it before the count is known.
+**2. Evaluability floor.** The floor is generalised from **"10 of 19"** to
+**`floor(n/2) + 1`**, evaluated against the realised n. This is a restatement of the
+same rule, not a change of stringency: at n = 19 it gives `floor(19/2) + 1 = 10`,
+reproducing the pre-specified expectation exactly. At n = 30 it gives 16.
 
-> **Citation note.** The "10 of 19" floor does **not appear in the committed
-> `CLAUDE.md`** as of this entry — §12 is "How to work with us" and no evaluability
-> floor is stated anywhere in the file. It is recorded here as a decision taken on
-> 23 Aug 2026 rather than as a quotation from a section that a reader cannot find.
-> If the rule exists in the original protocol draft, CLAUDE.md should be amended to
-> carry it and this note updated to cite the correct section.
+> **Source.** This rule comes from **Step 12 of the original protocol**, not from
+> `CLAUDE.md` — the committed CLAUDE.md carried no evaluability floor at the time of
+> this entry (its §12 is "How to work with us"). The rule has since been added to
+> CLAUDE.md as **§6.2** so that the operative document states it. Cite the protocol
+> Step 12 as the origin and CLAUDE.md §6.2 as the current statement.
+
+> **Correction, same session:** this entry originally recorded the formula as
+> `ceil(n/2) + 1`, which yields 11 at n = 19 and therefore contradicts the
+> pre-specified "10 of 19". Corrected to `floor(n/2) + 1` before any evaluability
+> result existed.
 
 **3. H1 is formally dropped if n < 16.** H1 (CLAUDE.md 6) requires a paired
 patient-level resample interval to support the decision rule

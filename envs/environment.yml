@@ -32,9 +32,13 @@ dependencies:
   - numpy=1.26.*
   - pandas=2.2.*
   - scipy=1.13.*
-  - scikit-learn=1.5.*
+  # 1.7 not 1.5: SEACells' dependency chain pulls scikit-learn>=1.6 via pip and
+  # silently overrides a 1.5 conda pin. Pinning what actually builds keeps the
+  # file honest — a lockfile that lies is worse than a loose one.
+  - scikit-learn=1.7.*
   - statsmodels=0.14.*        # Stage A mixed model (MixedLM) — see note below
   - pyyaml=6.0.*              # reads configs/pipeline_config.yaml
+  - openpyxl=3.1.*            # reads Wang et al. supplementary .xlsx tables
   - certifi                   # makes the download scripts' TLS fallback unnecessary
 
   # --- single-cell core ---------------------------------------------------
@@ -75,5 +79,12 @@ dependencies:
       # critical path for more than an hour, comment it out and invoke the
       # pre-declared contingency in DEVIATIONS.md rather than fighting it.
       # =====================================================================
-      - git+https://github.com/dpeerlab/SEACells.git@v0.3.3
+      # SEACells: published on PyPI as 0.3.3. Do NOT install from git — that repo
+      # has no tags and no releases, so any @vX.Y.Z ref fails at checkout. The
+      # first solve died exactly there.
+      - SEACells==0.3.3
+      # scCODA: pulls tensorflow + tensorflow-probability, the heaviest install
+      # here on arm64. See CLAUDE.md §3.2 — Ab(state)/Ab(clone) are defined as
+      # log2 fold-changes, which pandas computes directly; scCODA is not required
+      # to satisfy the protocol.
       - sccoda==0.1.9

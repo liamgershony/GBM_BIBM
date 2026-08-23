@@ -156,7 +156,7 @@ Stage B fits **metacells (~30 nuclei each, ~3,000 units), not individual nuclei 
 
 | Source | Access | Notes |
 |---|---|---|
-| **GSE174554** (GEO) | Open, anonymous FTP/HTTPS | Wang et al. 2022, *Nature Cancer*. 86 primary-recurrent matched specimens, **snRNA-seq**. 76 IDHwt; 52 carry matched-pair identifiers. Our discovery cohort. |
+| **GSE174554** (GEO) | Open, anonymous FTP/HTTPS | Wang et al. 2022, *Nature Cancer*. **snRNA-seq.** Our discovery cohort. Specimen and IDH counts are **not derivable from the GEO deposit** — GEO's only sample characteristics are `progression`, `diagnosis`, `age`, `gender`, `pair#`, `tissue`. Any IDH-status claim (e.g. "76 IDHwt") must cite **Wang et al. Supplementary Table 1**, not GEO. See `data/raw/wang2022_supplementary/`. |
 | **`GSE174554_Tumor_normal_metadata.txt.gz`** | Open, same series | The authors' own malignant vs non-malignant annotation. Served **gzipped** by GEO. **Use this. Do not roll our own classifier.** |
 | **CGGA mRNAseq_693** | Open, direct from cgga.org.cn | Read counts opened to public access June 2022. GBM: **140 primary, 109 recurrent**. Mandatory replication cohort. |
 | **CGGA mRNAseq_325** | Open, same portal | GBM: **85 primary, 24 recurrent, 30 secondary**. Supportive replication cohort. |
@@ -236,6 +236,32 @@ For candidate gene *g* in cohort *c*:
 - Mean ΔR ≤ −10 pp and interval excludes zero → the unadjusted model wins. Also a finding, also reported.
 
 With 19 patients and 200 resamples the interval will be wide and will very likely include zero. Say so, and say the resample count was pre-specified as reduced for compute. **A wide honest interval is a result. A narrow dishonest one is misconduct.**
+
+---
+
+### 6.2 Cell-state evaluability floor
+
+A cell state is **evaluable** if **at least `floor(n/2) + 1` distinct patients each
+contribute at least 20 malignant nuclei to that state**, counted across both
+timepoints combined, where *n* is the realised number of discovery-cohort patients.
+
+At the pre-specified n = 19 this gives a floor of **10 patients** — the "10 of 19"
+rule from Step 12 of the original protocol. It generalises automatically: at n = 30
+the floor is 16.
+
+States failing this test are **excluded from Stage B and reported as
+evaluability-failed**, with their patient counts stated. They are never silently
+dropped. A state that fails is a fact about cohort composition and belongs in the
+results, not in a filter nobody sees.
+
+Two consequences worth stating explicitly:
+
+- The threshold is on **distinct patients**, not on total nuclei. A state carried by
+  40,000 nuclei from three patients is *not* evaluable, because Stage B's unit of
+  independence is the patient (§3.7).
+- The 20-nucleus minimum is per patient per state, summed over primary and recurrent.
+  A patient contributing 19 nuclei to a state does not count toward the floor for
+  that state.
 
 ---
 

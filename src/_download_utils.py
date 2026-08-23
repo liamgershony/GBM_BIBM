@@ -106,7 +106,13 @@ def remote_size(url: str, timeout: int = 60) -> int | None:
     try:
         with urllib.request.urlopen(req, timeout=timeout, context=SSL_CONTEXT) as r:
             n = r.headers.get("Content-Length")
-            return int(n) if n is not None else None
+            if n is None:
+                return None
+            # A HEAD that answers Content-Length: 0 is telling us nothing useful --
+            # some endpoints (Europe PMC's supplementaryFiles among them) do this
+            # for generated payloads. Treating 0 as a real size makes an absent
+            # .part look "already complete". Report unknown instead.
+            return int(n) or None
     except Exception:
         return None
 
@@ -197,6 +203,9 @@ def download_with_resume(url: str, dest: Path, timeout: int = 120,
             log(f"  transfer error ({e}); retry {attempt}/{retries - 1} in {wait}s")
             time.sleep(wait)
 
+    if not part.exists():
+        raise IOError(f"download produced no data for {dest.name} "
+                      f"(no {part.name} on disk after {retries} attempt(s))")
     final = part.stat().st_size
     if expected is not None and final != expected:
         # Keep the .part for inspection. Do not record a checksum for a file we
