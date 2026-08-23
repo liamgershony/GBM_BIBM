@@ -47,6 +47,13 @@ DOWNLOAD_PAGES = [
 # like either an expression matrix or a clinical table.
 COHORTS = ("mRNAseq_693", "mRNAseq_325")
 EXPRESSION_HINTS = ("read_count", "readcount", "rsem", "fpkm", "count", "expression")
+
+# CGGA ships two expression matrices per cohort. Both are fetched; the Read_Counts
+# tables are the protocol matrix for the CLAUDE.md 4.3 replication test, and RSEM
+# is retained as a documented sensitivity option. Decided 2026-08-23, before any
+# replication result existed. Recorded in PROVENANCE.md so it is not an
+# analysis-time improvisation.
+PRIMARY_MATRIX_HINT = "read_count"
 CLINICAL_HINTS = ("clinical",)
 
 REPO = Path(__file__).resolve().parent.parent
@@ -148,6 +155,16 @@ def transport_note(files) -> str:
     return "> Transport: HTTPS, certificate verified.\n"
 
 
+DESIGNATION_NOTE = (
+    "> **Expression matrix designation.** CGGA publishes two expression matrices per\n"
+    "> cohort: `Read_Counts` (2022-06-20) and `RSEM` (2020-05-06). Both are archived\n"
+    "> here. The **`Read_Counts` tables are the protocol matrix** for the replication\n"
+    "> test in CLAUDE.md §4.3; the RSEM tables are retained as a documented sensitivity\n"
+    "> option and are not used unless that use is declared. Decided 2026-08-23, before\n"
+    "> any replication result existed.\n"
+)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -219,7 +236,8 @@ def main() -> int:
             log(f"  FAILED: {e}")
             failed += 1
 
-    block = transport_note(files) + "\n" + render_table(list(manifest.values()))
+    block = (transport_note(files) + "\n" + DESIGNATION_NOTE + "\n"
+             + render_table(list(manifest.values())))
     update_provenance(PROVENANCE, ACCESSION, block)
     log(f"provenance written: {PROVENANCE}")
     log(f"summary: {ok} downloaded/recorded, {skipped} skipped, {failed} failed")
