@@ -57,6 +57,11 @@ def build_metacells(emb, target, seed, tag, log):
         return lab, "kmeans_too_few_nuclei"
     t0 = time.time()
     try:
+        # SEACells imports tqdm.notebook, which raises ImportError without
+        # ipywidgets. That is a PROGRESS-BAR dependency, not a convergence
+        # failure, and must never be allowed to trigger the §9.1 k-means
+        # contingency -- doing so would put a false claim in the paper.
+        import ipywidgets  # noqa: F401
         import SEACells
         a = ad.AnnData(np.asarray(emb, dtype="float32"))
         a.obsm["X_pca_harmony"] = np.asarray(emb, dtype="float32")
@@ -121,6 +126,16 @@ def main() -> int:
 
     mc = pd.DataFrame(mc_rows)
     pd.DataFrame(rows).to_csv(OUT_MC_CSV, index=False)
+
+    # 07_metacells.h5ad: one row per metacell, X = Harmony centroid (docs/SCHEMA.md §2)
+    mc_ad = ad.AnnData(np.vstack(mc["centroid"].values).astype("float32"))
+    mc_ad.obs_names = mc["metacell_id"].values
+    for c in ("patient_id", "timepoint", "n_nuclei", "method"):
+        mc_ad.obs[c] = mc[c].values
+    for c in ("patient_id", "timepoint", "method"):
+        mc_ad.obs[c] = mc_ad.obs[c].astype("category")
+    mc_ad.write_h5ad(OUT_MC, compression="gzip")
+    log(f"wrote {OUT_MC.relative_to(REPO)} ({mc_ad.n_obs:,} metacells)")
     log(f"\nwrote {OUT_MC_CSV.relative_to(REPO)}")
 
     # ---------------- optimal transport, per patient ----------------

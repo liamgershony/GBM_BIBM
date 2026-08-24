@@ -89,6 +89,10 @@ dependencies:
       # SEACells: published on PyPI as 0.3.3. Do NOT install from git — that repo
       # has no tags and no releases, so any @vX.Y.Z ref fails at checkout. The
       # first solve died exactly there.
+      # ipywidgets is REQUIRED by SEACells: it imports tqdm.notebook, which
+      # raises ImportError without it. Missing, it silently forced the k-means
+      # contingency in all 42 patient-timepoint groups.
+      - ipywidgets==8.1.5
       - SEACells==0.3.3
       # scCODA: pulls tensorflow + tensorflow-probability, the heaviest install
       # here on arm64. See CLAUDE.md §3.2 — Ab(state)/Ab(clone) are defined as
