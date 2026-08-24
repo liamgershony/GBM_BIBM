@@ -194,6 +194,36 @@ def read_id_column(value) -> str | None:
 # hashing
 # --------------------------------------------------------------------------
 
+# Magic bytes by extension. A server that answers 200 with an HTML interstitial
+# instead of the file (PMC's anti-bot proof-of-work page does exactly this) would
+# otherwise be saved under the requested filename and checksummed, turning a
+# failed download into a recorded "success". This is the same failure shape as the
+# Content-Length: 0 bug and the batch2 false joins.
+MAGIC = {
+    ".xlsx": (b"PK",), ".zip": (b"PK",), ".gz": (b"\x1f\x8b",),
+    ".tar": (b"", ), ".pdf": (b"%PDF",),
+}
+
+
+def verify_file_type(path: Path) -> None:
+    """Raise if the bytes on disk do not match what the extension promises."""
+    exts = [e for e in MAGIC if path.name.lower().endswith(e)]
+    if not exts:
+        return
+    expect = MAGIC[exts[0]]
+    if not any(expect):
+        return
+    with open(path, "rb") as fh:
+        head = fh.read(8)
+    if not any(head.startswith(m) for m in expect if m):
+        looks_html = b"<html" in head.lower() or head.startswith(b"<!DO")
+        raise IOError(
+            f"{path.name}: content does not match its type -- expected one of "
+            f"{[m for m in expect]}, got {head!r}"
+            + (". The server returned an HTML page (login wall, anti-bot "
+               "challenge, or error) instead of the file." if looks_html else ""))
+
+
 def sha256_file(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -264,6 +294,13 @@ def download_with_resume(url: str, dest: Path, timeout: int = 120,
         raise IOError(f"size mismatch for {dest.name}: got {final:,} B, expected {expected:,} B "
                       f"(partial kept at {part})")
     part.replace(dest)
+    try:
+        verify_file_type(dest)
+    except IOError:
+        # Keep the evidence but never leave a mislabelled file in data/raw/.
+        bad = dest.with_suffix(dest.suffix + ".rejected")
+        dest.replace(bad)
+        raise
     return final
 
 

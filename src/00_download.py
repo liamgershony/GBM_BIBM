@@ -30,6 +30,24 @@ from _download_utils import (  # noqa: E402
 
 ACCESSION = "GSE174554"
 
+# Neftel et al. 2019 Cell, Table S2 -- the six meta-module gene lists.
+# PMC6703186's OA service refuses the article ("not Open Access"), but the
+# article's bin/ path serves supplementary files anonymously, so this is a direct
+# download with no account and no manual step, satisfying CLAUDE.md §4.
+NEFTEL = {
+    "accession": "neftel_signatures",
+    "filename": "NIHMS1532254-supplement-9.xlsx",
+    "url": ("https://pmc.ncbi.nlm.nih.gov/articles/instance/6703186/bin/"
+            "NIHMS1532254-supplement-9.xlsx"),
+    "note": ("> **Neftel et al. 2019 Cell, Table S2 — meta-module gene lists.**\n"
+             "> PMID 31327527, PMC6703186. Retrieved anonymously from the article's\n"
+             "> `bin/` supplementary path; the PMC OA service refuses this article but\n"
+             "> `bin/` serves it directly, so no account and no manual step are\n"
+             "> involved (CLAUDE.md §4). Six meta-modules (MES1, MES2, NPC1, NPC2, AC,\n"
+             "> OPC); MES1+MES2 and NPC1+NPC2 are collapsed to MES-like and NPC-like by\n"
+             "> `src/00h_build_neftel_signatures.py`, as the authors do.\n"),
+}
+
 # The authors' own malignant vs non-malignant annotation. CLAUDE.md 4 makes this
 # mandatory -- "Use this. Do not roll our own classifier." If GEO does not list
 # it, that is a protocol-level problem and the run stops rather than continuing
@@ -179,6 +197,32 @@ def main() -> int:
         except (NETWORK_ERRORS + (IOError,)) as e:
             log(f"  FAILED: {e}")
             failed += 1
+
+    # ---- Neftel Table S2 (separate accession, separate provenance block) ----
+    nf_dir = REPO / "data" / "raw" / NEFTEL["accession"]
+    nf_dir.mkdir(parents=True, exist_ok=True)
+    nf_manifest = load_manifest(nf_dir / ".download_manifest.json")
+    nf_dest = nf_dir / NEFTEL["filename"]
+    log(f"{NEFTEL['filename']}")
+    if nf_dest.exists() and nf_manifest.get(NEFTEL["filename"], {}).get("sha256") \
+            == sha256_file(nf_dest):
+        log("  present, checksum matches manifest -- skip")
+    else:
+        try:
+            n = download_with_resume(NEFTEL["url"], nf_dest, timeout=args.timeout,
+                                     retries=args.retries, log=log)
+            d = sha256_file(nf_dest)
+            nf_manifest[NEFTEL["filename"]] = {
+                "file": NEFTEL["filename"], "accession": "Neftel 2019 Table S2",
+                "url": NEFTEL["url"], "downloaded_utc": utc_now(),
+                "bytes": n, "sha256": d}
+            save_manifest(nf_dir / ".download_manifest.json", nf_manifest)
+            log(f"  done: {n:,} B  sha256={d}")
+        except (NETWORK_ERRORS + (IOError,)) as e:
+            log(f"  FAILED: {e}")
+            failed += 1
+    update_provenance(PROVENANCE, NEFTEL["accession"],
+                      NEFTEL["note"] + "\n" + render_table(list(nf_manifest.values())))
 
     update_provenance(PROVENANCE, ACCESSION, render_table(list(manifest.values())))
     log(f"provenance written: {PROVENANCE}")
