@@ -44,6 +44,11 @@ OUT_LISI = REPO / "results" / "tables" / "lisi_gate.csv"
 
 sc.settings.verbosity = 1
 
+# Pre-specified in DEVIATIONS.md before any permutation value was computed.
+N_PERMUTATIONS = 3
+TIMEPOINT_BELOW_NULL = 0.95   # timepoint "below its null" iff ratio < this
+PATIENT_NEAR_NULL = 0.80      # patient "near its null" iff ratio >= this
+
 
 def main() -> int:
     conf = yaml.safe_load(open(CONF))
@@ -51,7 +56,7 @@ def main() -> int:
     batch_key = conf["integration"]["batch_key"]
     seed = conf["seed"]["master"]
     n_hvg = conf["features"]["n_hvg"]
-    fail_ratio = rconf["integration"]["lisi_timepoint_fail_ratio"]
+
 
     assert batch_key == "patient_id", (
         f"Harmony batch key must be patient_id, got {batch_key!r}. Integrating on "
@@ -82,46 +87,92 @@ def main() -> int:
     sce.pp.harmony_integrate(adata, key=batch_key, random_state=seed)
     sc.pp.neighbors(adata, use_rep="X_pca_harmony", random_state=seed)
 
-    # ---------------- Step 3 LISI gate ----------------
+    # ---------------- Step 3 LISI gate (permutation null) ----------------
+    # Each label is compared against ITS OWN permutation null rather than against
+    # the other label. The earlier (LISI-1)/(k-1) normalisation was invalid:
+    # compute_lisi uses perplexity=30, so attainable LISI is bounded by
+    # neighbourhood size as well as by category count, and dividing by (k-1)
+    # inverted the comparison. See DEVIATIONS.md, 2026-08-24.
     emb = adata.obsm["X_pca_harmony"]
-    meta = adata.obs[["patient_id", "timepoint"]].astype(str)
-    lisi = compute_lisi(emb, meta, ["patient_id", "timepoint"])
-    k_pat = meta["patient_id"].nunique()
-    k_tp = meta["timepoint"].nunique()
-    raw_pat, raw_tp = float(np.median(lisi[:, 0])), float(np.median(lisi[:, 1]))
-    norm_pat = (raw_pat - 1) / (k_pat - 1)
-    norm_tp = (raw_tp - 1) / (k_tp - 1)
-    threshold = fail_ratio * norm_pat
-    passed = norm_tp < threshold
+    rng = np.random.default_rng(seed)
+    meta = adata.obs[["patient_id", "timepoint"]].astype(str).copy()
+
+    labels = ["patient_id", "timepoint"]
+    perm_cols = {l: [] for l in labels}
+    for i in range(N_PERMUTATIONS):
+        r = np.random.default_rng(seed + i)
+        for l in labels:
+            col = f"{l}__perm{i}"
+            meta[col] = r.permutation(meta[l].values)
+            perm_cols[l].append(col)
+
+    # ONE compute_lisi call: the neighbourhood is built once and shared by the
+    # observed and permuted columns, so the null differs only in the labels.
+    all_cols = labels + [c for l in labels for c in perm_cols[l]]
+    print(f"computing LISI for {len(all_cols)} label columns "
+          f"({N_PERMUTATIONS} permutations per label) ...")
+    lisi = compute_lisi(emb, meta, all_cols)
+    med = {c: float(np.median(lisi[:, i])) for i, c in enumerate(all_cols)}
+
+    results = {}
+    for l in labels:
+        obs = med[l]
+        null = float(np.mean([med[c] for c in perm_cols[l]]))
+        results[l] = {"observed": obs, "null": null,
+                      "ratio": obs / null if null else float("nan"),
+                      "k": int(meta[l].nunique())}
+
+    r_tp = results["timepoint"]["ratio"]
+    r_pat = results["patient_id"]["ratio"]
+
+    if r_tp >= TIMEPOINT_BELOW_NULL:
+        outcome, passed = "c", False
+        verdict = ("REAL FAILURE -- timepoint LISI is at or above its null: the "
+                   "embedding has mixed primary and recurrent. RAS component T is "
+                   "compromised. Invoking STOP/GO gate 1.")
+    elif r_pat >= PATIENT_NEAR_NULL:
+        outcome, passed = "a", True
+        verdict = "PASS -- timepoints separable, patients well mixed."
+    else:
+        outcome, passed = "b", True
+        verdict = ("PROCEED WITH STATED LIMITATION -- timepoints are separable "
+                   "(component T intact), but integration under-corrected across "
+                   "patients. Report these LISI values as a limitation. Do NOT "
+                   "retune Harmony theta to force mixing.")
 
     with open(OUT_LISI, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
-        w.writerow(["label", "n_categories", "median_lisi_raw",
-                    "median_lisi_normalised"])
-        w.writerow(["patient_id", k_pat, round(raw_pat, 4), round(norm_pat, 4)])
-        w.writerow(["timepoint", k_tp, round(raw_tp, 4), round(norm_tp, 4)])
-        w.writerow(["fail_ratio", "", "", fail_ratio])
-        w.writerow(["fail_threshold_normalised", "", "", round(threshold, 4)])
-        w.writerow(["gate", "", "", "PASS" if passed else "FAIL"])
+        w.writerow(["label", "k", "median_lisi_observed", "median_lisi_null",
+                    "ratio_observed_over_null"])
+        for l in labels:
+            v = results[l]
+            w.writerow([l, v["k"], round(v["observed"], 4), round(v["null"], 4),
+                        round(v["ratio"], 4)])
+        w.writerow(["n_permutations", "", "", "", N_PERMUTATIONS])
+        w.writerow(["cutoff_timepoint_below_null", "", "", "", TIMEPOINT_BELOW_NULL])
+        w.writerow(["cutoff_patient_near_null", "", "", "", PATIENT_NEAR_NULL])
+        w.writerow(["outcome", "", "", "", outcome])
+        w.writerow(["gate", "", "", "", "PASS" if passed else "FAIL"])
 
-    print("\n--- Step 3 LISI gate ---")
-    print(f"  patient_id : raw {raw_pat:7.3f} / {k_pat:<3} -> normalised {norm_pat:.4f}"
-          "   (want HIGH: patients mixed)")
-    print(f"  timepoint  : raw {raw_tp:7.3f} / {k_tp:<3} -> normalised {norm_tp:.4f}"
-          "   (want LOW: signal preserved)")
-    print(f"  fail if normalised timepoint >= {fail_ratio} x {norm_pat:.4f} "
-          f"= {threshold:.4f}")
-    print(f"  -> {'PASS' if passed else 'FAIL'}")
+    print("\n--- Step 3 LISI gate (permutation null) ---")
+    for l in labels:
+        v = results[l]
+        print(f"  {l:<11} k={v['k']:<3} observed {v['observed']:7.3f}   "
+              f"null {v['null']:7.3f}   ratio {v['ratio']:.4f}")
+    print(f"  cutoffs: timepoint below null if ratio < {TIMEPOINT_BELOW_NULL}; "
+          f"patient near null if ratio >= {PATIENT_NEAR_NULL}")
+    print(f"  -> pre-specified outcome ({outcome}): {verdict}")
     print(f"  wrote {OUT_LISI.relative_to(REPO)}")
 
-    if not passed:
-        print("\nGATE FAILED: the embedding has mixed the timepoints. RAS component T")
-        print("is compromised. Do not proceed to RAS construction.")
-        return 1
-
+    # Written regardless of outcome so a failure can be re-diagnosed without
+    # re-running Harmony. Writing the embedding is not proceeding with RAS.
     adata.write_h5ad(OUT_H5, compression="gzip")
-    print(f"\nwrote {OUT_H5.relative_to(REPO)}  "
+    print(f"  wrote {OUT_H5.relative_to(REPO)}  "
           f"{adata.n_obs:,} nuclei x {adata.n_vars:,} HVGs")
+
+    if not passed:
+        print("\nSTOP/GO gate 1 invoked. Do not proceed to RAS construction.")
+        return 1
     return 0
 
 
