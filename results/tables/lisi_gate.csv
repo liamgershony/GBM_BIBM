@@ -1,0 +1,6 @@
+label,n_categories,median_lisi_raw,median_lisi_normalised
+patient_id,21,2.7474,0.0874
+timepoint,2,1.2626,0.2626
+fail_ratio,,,0.9
+fail_threshold_normalised,,,0.0786
+gate,,,FAIL
