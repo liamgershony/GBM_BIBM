@@ -43,7 +43,7 @@ dependencies:
 
   # --- single-cell core ---------------------------------------------------
   - anndata=0.10.*
-  - scanpy=1.10.*             # includes sc.pp.scrublet — no separate scrublet pin
+  - scanpy=1.10.*             # provides the sc.pp.scrublet WRAPPER only (see pip: scrublet)
   - h5py=3.11.*
   - python-igraph=0.11.*
   - leidenalg=0.10.*          # Leiden clustering for clone calling
@@ -62,6 +62,13 @@ dependencies:
   - pip:
       # --- integration ----------------------------------------------------
       - harmonypy==0.0.10      # Harmony batch correction
+
+      # --- doublet detection ----------------------------------------------
+      # REQUIRED. scanpy ships sc.pp.scrublet as a thin wrapper and does NOT
+      # bundle the implementation. Without this pin the call raises
+      # ModuleNotFoundError at runtime. It did: doublet detection silently did
+      # nothing across all 60 libraries. See DEVIATIONS.md.
+      - scrublet==0.2.3
 
       # --- CNV / genotype -------------------------------------------------
       # NOT on conda-forge or bioconda under any version — the first solve failed

@@ -33,8 +33,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _download_utils import (  # noqa: E402
-    download_with_resume, extract_links, fetch_text, load_manifest, make_logger,
-    remote_size, render_table, save_manifest, sha256_file, update_provenance, utc_now,
+    NETWORK_ERRORS, download_with_resume, extract_links, fetch_text, load_manifest,
+    make_logger, remote_size, render_table, save_manifest, sha256_file,
+    update_provenance, utc_now,
 )
 
 ACCESSION = "CGGA"
@@ -99,7 +100,7 @@ def discover(log) -> list[tuple[str, str, str, str]]:
             html = fetch_text(candidate, timeout=60, retries=2, log=log)
             page = candidate
             break
-        except Exception as e:
+        except NETWORK_ERRORS as e:
             log(f"  unreachable ({e})")
     if html is None:
         raise SystemExit("FATAL: could not reach the CGGA download page over HTTP or HTTPS.")
@@ -232,7 +233,7 @@ def main() -> int:
             save_manifest(MANIFEST, manifest)
             log(f"  done: {n:,} B  sha256={digest}")
             ok += 1
-        except Exception as e:
+        except (NETWORK_ERRORS + (IOError,)) as e:
             log(f"  FAILED: {e}")
             failed += 1
 

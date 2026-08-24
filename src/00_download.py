@@ -23,8 +23,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _download_utils import (  # noqa: E402
-    download_with_resume, extract_links, fetch_text, load_manifest, make_logger,
-    remote_size, render_table, save_manifest, sha256_file, update_provenance, utc_now,
+    NETWORK_ERRORS, download_with_resume, extract_links, fetch_text, load_manifest,
+    make_logger, remote_size, render_table, save_manifest, sha256_file,
+    update_provenance, utc_now,
 )
 
 ACCESSION = "GSE174554"
@@ -69,13 +70,15 @@ def series_index_url(accession: str, subdir: str) -> str:
 def discover(log) -> list[tuple[str, str]]:
     """Read the file list from every GEO subdirectory. Filenames are never guessed."""
     files: list[tuple[str, str]] = []
+    failed_subdirs: list[str] = []
     for subdir in SUBDIRS:
         index = series_index_url(ACCESSION, subdir)
         log(f"reading {subdir}/ index: {index}")
         try:
             found = extract_links(fetch_text(index, log=log), index)
-        except Exception as e:
+        except NETWORK_ERRORS as e:
             log(f"  {subdir}/ unavailable ({e}) -- skipping")
+            failed_subdirs.append(subdir)
             continue
         # Drop server index pages and absolute links off-site (GEO footers).
         found = [(n, u) for n, u in found
@@ -83,7 +86,16 @@ def discover(log) -> list[tuple[str, str]]:
         log(f"  {subdir}/ lists {len(found)} file(s)")
         files.extend(found)
 
-    log(f"GEO lists {len(files)} file(s) across {len(SUBDIRS)} subdirectories")
+    # A subdirectory silently going missing would quietly shrink the download and
+    # still report success. suppl/ carries the required annotation, so its absence
+    # is fatal; the others are reported loudly.
+    if "suppl" in failed_subdirs:
+        raise SystemExit("FATAL: GEO suppl/ index unreachable -- refusing to "
+                         "continue with a partial file list.")
+    if failed_subdirs:
+        log(f"WARNING: unreachable subdirectories skipped: {failed_subdirs}")
+    log(f"GEO lists {len(files)} file(s) across "
+        f"{len(SUBDIRS) - len(failed_subdirs)}/{len(SUBDIRS)} subdirectories")
     for name, url in sorted(files):
         size = remote_size(url)
         log(f"  - {name}" + (f"  ({size:,} B)" if size else "  (size unreported)"))
@@ -164,7 +176,7 @@ def main() -> int:
             save_manifest(MANIFEST, manifest)
             log(f"  done: {n:,} B  sha256={digest}")
             ok += 1
-        except Exception as e:
+        except (NETWORK_ERRORS + (IOError,)) as e:
             log(f"  FAILED: {e}")
             failed += 1
 

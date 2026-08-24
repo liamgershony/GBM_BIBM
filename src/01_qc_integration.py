@@ -46,6 +46,9 @@ OUT_CSV = REPO / "results" / "tables" / "qc_per_library.csv"
 
 sc.settings.verbosity = 1
 
+# Scrublet needs enough nuclei to build a simulated-doublet neighbourhood.
+MIN_NUCLEI_FOR_SCRUBLET = 30
+
 
 def read_library(libdir: Path) -> ad.AnnData:
     """Read one library's 10x triplet.
@@ -189,17 +192,31 @@ def main() -> int:
         a = a[a.obs["pct_counts_mt"] / 100.0 <= max_mito].copy()
         n_mito = a.n_obs
 
+        # Doublet detection.
+        #
+        # This block previously caught `Exception`, which swallowed a
+        # ModuleNotFoundError in all 60 libraries that reached it -- scrublet was
+        # never installed -- and reported success while removing zero doublets.
+        # A missing dependency is a fatal environment error, never a per-library
+        # data condition, so ImportError is NOT caught here and will propagate.
+        # Only genuine numerical failures on small/degenerate libraries are
+        # tolerated, and the outcome is recorded in qc_per_library.csv so a
+        # silent no-op is visible in the artifact rather than only in stdout.
         n_doub = 0
-        if a.n_obs >= 30:
+        if a.n_obs >= MIN_NUCLEI_FOR_SCRUBLET:
             try:
                 sc.pp.scrublet(a, random_state=seed, verbose=False)
                 n_doub = int(a.obs["predicted_doublet"].sum())
                 a = a[~a.obs["predicted_doublet"]].copy()
-            except Exception as e:                      # noqa: BLE001
-                print(f"   [{bk}] scrublet failed ({type(e).__name__}), retained all")
+                scrublet_status = "ran"
+            except (ValueError, ArithmeticError, np.linalg.LinAlgError) as e:
+                print(f"   [{bk}] scrublet numerical failure "
+                      f"({type(e).__name__}: {e}); nuclei retained")
                 a.obs["predicted_doublet"] = False
+                scrublet_status = f"numerical_failure:{type(e).__name__}"
         else:
             a.obs["predicted_doublet"] = False
+            scrublet_status = f"skipped_too_few(<{MIN_NUCLEI_FOR_SCRUBLET})"
         n_post = a.n_obs
 
         # annotation join AFTER our QC, on surviving nuclei
@@ -231,7 +248,8 @@ def main() -> int:
                       "sample_id": r["sample_id"], "timepoint": r["timepoint"],
                       "library": r["library"], "n_input": n_in,
                       "n_post_gene_filter": n_gene, "n_post_mito_filter": n_mito,
-                      "n_doublets_removed": n_doub, "n_post_qc": n_post,
+                      "n_doublets_removed": n_doub,
+                      "scrublet_status": scrublet_status, "n_post_qc": n_post,
                       "n_annotated": n_annot, "n_unknown": n_post - n_annot,
                       "annotation_rate": round(rate, 4),
                       "n_malignant": int((labels == "Tumor").sum()),
@@ -255,6 +273,14 @@ def main() -> int:
     print(f"wrote {OUT_H5.relative_to(REPO)}  {adata.n_obs:,} nuclei x {adata.n_vars:,} genes")
 
     # ---- reporting + the bug-detector gate --------------------------------
+    ran = [s for s in stats if s["scrublet_status"] == "ran"]
+    print(f"\ndoublet detection ran in {len(ran)}/{len(stats)} libraries; "
+          f"{sum(s['n_doublets_removed'] for s in stats):,} doublets removed")
+    if not ran:
+        print("FATAL: doublet detection ran in ZERO libraries. Refusing to report "
+              "QC counts that silently skipped a pipeline stage.")
+        return 1
+
     tot = sum(s["n_post_qc"] for s in stats)
     print(f"\ntotal post-QC nuclei : {tot:,}")
     print(f"  malignant          : {sum(s['n_malignant'] for s in stats):,}")

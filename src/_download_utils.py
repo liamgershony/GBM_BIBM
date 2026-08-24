@@ -25,6 +25,13 @@ from pathlib import Path
 USER_AGENT = "gbm-persister/0.1 (academic use; contact liam.gershony@gmail.com)"
 CHUNK = 1024 * 1024  # 1 MiB
 
+# The only failures a network call is allowed to swallow. Anything else -- a
+# NameError, an AttributeError, a ModuleNotFoundError -- is a bug in our code and
+# must propagate. A broad `except Exception` here turns a programming error into a
+# silent "server unavailable" and the pipeline reports success.
+NETWORK_ERRORS = (urllib.error.URLError, urllib.error.HTTPError,
+                  TimeoutError, OSError, ConnectionError)
+
 
 def _ssl_context() -> ssl.SSLContext:
     """A fully-verifying TLS context that works on python.org macOS installs.
@@ -113,8 +120,13 @@ def remote_size(url: str, timeout: int = 60) -> int | None:
             # for generated payloads. Treating 0 as a real size makes an absent
             # .part look "already complete". Report unknown instead.
             return int(n) or None
-    except Exception:
+    except NETWORK_ERRORS:
+        # HEAD is advisory: callers treat None as "size unknown" and skip size
+        # verification. Only network failures may produce that; anything else
+        # would silently disable a correctness check.
         return None
+    except ValueError:
+        return None                      # non-integer Content-Length
 
 
 def extract_links(html: str, base_url: str) -> list[tuple[str, str]]:

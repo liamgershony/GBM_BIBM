@@ -28,8 +28,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _download_utils import (  # noqa: E402
-    download_with_resume, load_manifest, make_logger, remote_size, render_table,
-    save_manifest, sha256_file, update_provenance, utc_now,
+    NETWORK_ERRORS, download_with_resume, load_manifest, make_logger, remote_size,
+    render_table, save_manifest, sha256_file, update_provenance, utc_now,
 )
 
 ACCESSION = "wang2022_supplementary"
@@ -95,7 +95,7 @@ def main() -> int:
     try:
         n = download_with_resume(URL, dest, timeout=args.timeout,
                                  retries=args.retries, log=log)
-    except Exception as e:
+    except (NETWORK_ERRORS + (IOError,)) as e:
         log(f"FAILED: {e}")
         return 1
 

@@ -54,6 +54,91 @@ deviation list has a single source. They are NOT post-hoc changes.
 
 <!-- Append new entries below this line. -->
 
+## 2026-08-24 02:39 UTC — Operationalising the LISI permutation gate (recorded BEFORE computing it)
+
+- **Affects:** the Step 3 gate in `src/02_integration.py`.
+- **Status:** written while **no permutation-null LISI value exists**. The QC re-run
+  has completed (n = 21) but `02_integration.py` has not been re-run.
+
+The decision rule recorded earlier is qualitative ("below its null", "near its
+null"). Those phrases need numeric form, and choosing that form after seeing the
+values would defeat the pre-specification. The cutoffs are therefore fixed here.
+
+**Statistic.** For each label L, `ratio(L) = median observed LISI(L) / median null
+LISI(L)`, where the null is LISI recomputed on the same embedding and the same
+neighbourhood with L randomly permuted. **3 permutations**, seeded
+`master_seed + i`, null taken as their mean. Both labels' observed and permuted
+values come from a single `compute_lisi` call so the neighbourhood is identical
+throughout, and the perplexity ceiling cancels within each ratio.
+
+**Cutoffs.**
+- `timepoint` is **"below its null"** iff `ratio(timepoint) < 0.95`.
+- `patient_id` is **"near its null"** iff `ratio(patient_id) >= 0.80`;
+  **"far below its null"** iff `ratio(patient_id) < 0.80`.
+
+**Mapping to the pre-specified outcomes.**
+
+| Condition | Outcome | Response |
+|---|---|---|
+| `ratio(tp) < 0.95` and `ratio(pat) >= 0.80` | **(a)** | PASS. Proceed to RAS. |
+| `ratio(tp) < 0.95` and `ratio(pat) < 0.80` | **(b)** | PROCEED, report LISI as a stated limitation. **Do not retune Harmony theta.** |
+| `ratio(tp) >= 0.95` | **(c)** | REAL FAILURE. Invoke STOP/GO gate 1 and stop. |
+
+Condition (c) is evaluated first and dominates: if the timepoints are mixed, the
+patient-side result is irrelevant.
+
+The embedding is now written to disk **regardless of gate outcome**, so a failure
+can be re-diagnosed without re-running Harmony. Writing the embedding is not
+proceeding with the analysis; outcome (c) still halts RAS construction.
+
+
+## 2026-08-24 02:29 UTC — BUG FIX: doublet detection never ran (scrublet was not installed)
+
+- **Affects:** `envs/environment.yml`, `envs/environment.lock.yml`,
+  `src/01_qc_integration.py`; all QC counts; clause (d); `n`.
+- **Class:** **bug fix / correction of record.** Not a protocol change, not a
+  cohort expansion.
+- **Authorised by:** Liam Gershony (Lane 1).
+
+**What happened.** `envs/environment.yml` omitted a `scrublet` pin, with the
+comment *"scanpy 1.10 ships sc.pp.scrublet -- no separate scrublet pin."* That
+comment was **false**: scanpy ships the wrapper, not the implementation. The
+`scrublet` package was never installed, so `sc.pp.scrublet` raised
+`ModuleNotFoundError` in **all 60 libraries that reached it**. The call sat inside
+`except Exception`, which swallowed the error, retained every nucleus, and let the
+pipeline report success. **0 doublets were removed from 170,266 input nuclei**, and
+`n = 21` was computed without doublet removal.
+
+**Why this is a correction and not a cohort expansion.** Doublet removal can only
+**remove** nuclei. Re-running it can therefore only lower per-timepoint counts,
+never raise them, so it **cannot cause any patient to newly satisfy clause (d)'s
+>=100-nucleus threshold**. The fix is incapable of recovering a failed patient,
+which is precisely what makes it safe to apply after the failures were inspected.
+Any change in `n` will be downward or nil.
+
+**Fix.**
+1. `scrublet==0.2.3` pinned in the pip block; the false comment removed.
+2. `envs/environment.lock.yml` regenerated from the repaired environment.
+3. `src/01_qc_integration.py`: `ImportError` is **no longer caught** -- a missing
+   dependency is a fatal environment error, never a per-library data condition.
+   Only `ValueError`/`ArithmeticError`/`LinAlgError` are tolerated, and the outcome
+   is written to a new `scrublet_status` column in `qc_per_library.csv` so a
+   silent no-op is visible in the artifact. The script now **exits non-zero if
+   doublet detection ran in zero libraries.**
+
+**Related hardening, same session.** Every `except Exception` in `src/` was audited
+and narrowed, because this bug shares its shape with two earlier ones -- the
+`Content-Length: 0` HEAD response that made an absent `.part` look complete, and
+the `batch2` barcode collisions that produced 51 false annotation joins. All three
+turned a failure into a plausible-looking success. `remote_size` and every download
+handler now catch only network errors; `00_download.py` treats an unreachable
+`suppl/` index as fatal rather than silently downloading a shorter file list.
+No `except Exception` remains in `src/`.
+
+**Consequence.** `n = 21` is superseded by the value in
+`results/tables/cohort_n.json` after the re-run.
+
+
 ## 2026-08-24 02:08 UTC — Step 3 LISI gate: redesign, and PRE-SPECIFIED decision rule
 
 - **Affects:** the Step 3 integration gate in `src/02_integration.py`;

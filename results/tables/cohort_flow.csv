@@ -4,6 +4,6 @@ human snRNA-seq GSMs,81
 matched pairs (clauses a+b),30
 IDH-wildtype pairs (clause c),29
 libraries loaded,68
-nuclei after QC,142726
-malignant nuclei,80201
+nuclei after QC,141113
+malignant nuclei,79757
 patients passing clause (d) (>=100 malignant both timepoints),21
