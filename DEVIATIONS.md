@@ -54,6 +54,90 @@ deviation list has a single source. They are NOT post-hoc changes.
 
 <!-- Append new entries below this line. -->
 
+## 2026-08-24 00:25 UTC — CORRECTION to frozen config: Harmony batch key was wrong
+
+- **Affects:** `configs/pipeline_config.yaml` -> `integration.batch_key`.
+- **From -> To:** `"sample_id"` -> `"patient_id"`.
+- **Authorised by:** Liam Gershony (Lane 1), Arnav Vishwakarma (Lane 2).
+- **Paper:** Methods (integration).
+
+**This is a correction of an error, not a change of plan.** CLAUDE.md never
+specifies Harmony's batch key. The line `batch_key: "sample_id"` was introduced by
+Claude when the config was first written on 23 Aug 2026 and had no basis in the
+protocol.
+
+**Why it was wrong, and why it mattered.** `sample_id` distinguishes a patient's
+primary specimen from their recurrent specimen. Integrating on it would have
+instructed Harmony to remove the primary-versus-recurrent difference as though it
+were technical batch. That difference **is RAS component T** -- the transcriptional
+similarity between a primary cell and the patient's recurrent centroid -- and it is
+the signal the whole study is built on. The pipeline would have run cleanly and
+produced a null that looked methodologically sound.
+
+Caught during Day 1 planning review, **before any preprocessing was executed.** No
+result was produced under the incorrect key.
+
+**Correct behaviour.** Harmony integrates on `patient_id`. `batch_key`
+(`{sample_id}__{library}`) and `library` are retained in `.obs` as covariates
+for downstream use and are **never** passed to Harmony.
+
+**Gate added (protocol Step 3).** After integration, LISI is computed on
+`patient_id` and on `timepoint`. Because LISI is bounded by category count -- 1..n
+for patients but 1..2 for timepoint -- raw values are not comparable; both are
+normalised to `(LISI - 1)/(k - 1)`. Integration **fails** if normalised timepoint
+LISI >= 0.90 x normalised patient LISI, i.e. if the timepoints have been mixed.
+Reported in `results/tables/lisi_gate.csv`.
+
+## 2026-08-24 00:25 UTC — Two amendments to the agreed cohort rule
+
+- **Affects:** `docs/COHORT_RULE.md` clause (b) and the pooling clause.
+- **Authorised by:** Liam Gershony (Lane 1), Arnav Vishwakarma (Lane 2).
+- **Status:** agreed before any preprocessing was executed.
+
+**1. Re-sample suffix handling.** `SF6118v2` and `SF9715v2` are human snRNA-seq
+GSMs in GSE174554 carrying real nuclei from cohort patients at the Recurrent
+timepoint, but Supplementary Table 1 does not index them. A literal reading of
+clause (b) discarded them on a bookkeeping technicality.
+
+> **Sub-rule.** A GSM is assigned to the patient and timepoint of its specimen ID
+> **with a trailing re-sample suffix (`vN`) stripped**, provided the stripped ID
+> appears in Supplementary Table 1 for that timepoint.
+
+Recovers both. The cohort is **29 patients / 61 specimens**. `SF12704v2` is *not*
+recovered -- its stripped ID `SF12704` carries a literal `NA` pair and is not in a
+matched pair.
+
+**2. Batch key composition.** 7 cohort specimens (`SF10099`, `SF10433`, `SF12243`,
+`SF4209`, `SF4449`, `SF4810`, `SF7307`) carry a **second 10x library** (`batch2`)
+under the same GSM -- a technical batch *inside* one specimen. The agreed wording
+"sample ID retained as batch key" cannot distinguish them, so a real technical
+batch would have been invisible.
+
+> **Amendment.** The batch key is **`{sample_id}__{library}`** where `library`
+> is `batch1` or `batch2`. `sample_id` remains its own `.obs` column.
+
+The cohort spans **68 libraries** across 61 specimens. Per the correction above,
+this key is a covariate only and is never Harmony's integration key.
+
+## 2026-08-24 00:25 UTC — Non-frozen runtime thresholds file introduced
+
+- **Affects:** new `configs/runtime_thresholds.yaml`.
+- **Reason:** implementation surfaced two operational thresholds that are not part
+  of the pre-registered analysis and must not sit in the frozen config.
+- **Authorised by:** Liam Gershony (Lane 1).
+
+- `qc.annotation_join_min_rate: 0.80` — a **bug detector**, not a quality gate.
+  The authors annotated only the nuclei they retained, so divergence from our QC is
+  expected and lands in the high 90s; a barcode key-format mismatch yields near 0%.
+  0.80 separates those two regimes. 0.95 was considered and rejected because it
+  would fire on ordinary divergence.
+- `integration.lisi_timepoint_fail_ratio: 0.90` — the Step 3 gate described above.
+
+**Constraint on this file:** every value in it must be a bug detector or an
+engineering guard. Anything capable of influencing a reported statistic belongs in
+the frozen config with its own DEVIATIONS entry.
+
+
 ## 2026-08-23 23:58 UTC — Discovery cohort rule agreed (CLAUDE.md §10.1 requirement satisfied)
 
 - **Affects:** definition of the discovery cohort; `n_patients` and every quantity

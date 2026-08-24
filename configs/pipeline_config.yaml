@@ -53,7 +53,13 @@ qc:
 # ----------------------------------------------------------------------------
 integration:
   method: "harmony"
-  batch_key: "sample_id"
+  # CORRECTED 2026-08-23 (see DEVIATIONS.md). Was "sample_id", which was an error:
+  # sample_id distinguishes the primary specimen from the recurrent one, so
+  # integrating on it would regress out the primary-vs-recurrent difference --
+  # RAS component T, and the entire signal. Harmony integrates on the PATIENT.
+  batch_key: "patient_id"
+  # Kept in .obs as covariates for downstream use. NEVER Harmony's batch key.
+  covariate_columns: ["batch_key", "library", "sample_id"]
 
 cell_state:
   # Neftel four-state signatures from the published supplementary tables.

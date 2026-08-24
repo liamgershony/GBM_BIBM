@@ -1,0 +1,35 @@
+# runtime_thresholds.yaml  --  NOT FROZEN
+#
+# configs/pipeline_config.yaml is frozen (CLAUDE.md 7.1) and pre-registered. This
+# file holds operational thresholds discovered during implementation that are NOT
+# part of the pre-registered analysis and cannot affect any reported statistic.
+#
+# Anything here that could influence a result belongs in the frozen config with a
+# DEVIATIONS.md entry instead. Every value here must be a bug detector or an
+# engineering guard, never an analysis parameter.
+#
+# Created 2026-08-24 00:25 UTC.
+
+qc:
+  # Fraction of post-QC nuclei in a library that must join to the authors'
+  # tumour/normal annotation before we treat the join as working.
+  #
+  # This is a BUG DETECTOR, not a quality gate. The authors annotated only the
+  # nuclei they themselves retained, so legitimate divergence from our QC is
+  # expected in both directions and lands in the high 90s. A barcode key-format
+  # mismatch instead yields near 0%. 0.80 sits far below normal divergence and far
+  # above a broken join, so it fires only on the bug it is meant to catch.
+  #
+  # A 0.95 threshold was considered and rejected: it would fire on ordinary QC
+  # divergence and force a spurious investigation.
+  annotation_join_min_rate: 0.80
+
+integration:
+  # Step 3 gate. Harmony must mix PATIENTS while preserving the
+  # primary-vs-recurrent difference (RAS component T). LISI is bounded by its
+  # category count -- patient LISI spans 1..n_patients, timepoint LISI 1..2 -- so
+  # raw values are not comparable and both are normalised to (LISI-1)/(k-1).
+  #
+  # Fail if normalised timepoint LISI >= this multiple of normalised patient LISI:
+  # the embedding has mixed the timepoints and component T is compromised.
+  lisi_timepoint_fail_ratio: 0.90
