@@ -54,6 +54,88 @@ deviation list has a single source. They are NOT post-hoc changes.
 
 <!-- Append new entries below this line. -->
 
+## 2026-08-24 02:08 UTC — Step 3 LISI gate: redesign, and PRE-SPECIFIED decision rule
+
+- **Affects:** the Step 3 integration gate in `src/02_integration.py`;
+  `configs/runtime_thresholds.yaml -> integration.lisi_timepoint_fail_ratio`.
+- **Authorised by:** Liam Gershony (Lane 1).
+- **Status:** the decision rule below is recorded **before the permutation-null
+  LISI values have been computed.** No redesigned-gate output existed when this
+  entry was written.
+
+### The original gate, and its failing values
+
+The gate as first implemented computed LISI on `patient_id` and on `timepoint` in
+the Harmony embedding, normalised each to `(LISI - 1)/(k - 1)`, and failed if
+normalised timepoint LISI >= `0.90 x` normalised patient LISI.
+
+It **fired on the first real run**, with these values (recorded verbatim, from
+`results/tables/lisi_gate.csv`, commit b79dbad):
+
+| label | k | median LISI (raw) | normalised `(LISI-1)/(k-1)` |
+|---|---|---|---|
+| `patient_id` | 21 | **2.747** | **0.0874** |
+| `timepoint` | 2 | **1.263** | **0.2626** |
+
+Fail threshold `0.90 x 0.0874 = 0.0786`; observed `0.2626` -> **FAIL**. The run
+stopped fail-closed and `02_integrated.h5ad` was not written.
+
+### Why the `(k-1)` normalisation was mathematically invalid
+
+`(LISI - 1)/(k - 1)` presumes LISI can approach its category count `k`. It cannot.
+`harmonypy.lisi.compute_lisi` uses **`perplexity = 30`**, so the effective
+neighbourhood is roughly 30 nuclei and the attainable LISI is bounded by
+**neighbourhood size as well as by `k`**. With `k = 21` patients the patient-LISI
+ceiling lies far below 21, whereas with `k = 2` a timepoint LISI approaching 2 is
+readily attainable. Dividing by `(k - 1)` therefore deflates the high-`k` variable
+and inflates the low-`k` one, **inverting the comparison the gate was built to
+make**. The failure was a property of the statistic, not of the embedding.
+
+### Disclosure: the redesign happened AFTER the gate fired
+
+This redesign was undertaken **after** the original gate failed on real data, by
+the same author who specified the original gate. That ordering is disclosed
+because it is exactly the circumstance in which a threshold change is
+untrustworthy. Two constraints follow and are binding:
+
+1. The replacement is justified **only** by the mathematical argument above, which
+   is independent of the observed values and would hold had the gate passed.
+2. **The decision rule for every outcome is fixed below, before the replacement
+   statistic is computed.** Whatever the permutation nulls show, the response is
+   already written.
+
+### The replacement gate
+
+For each label, compare observed LISI against **its own permutation null**: LISI
+recomputed on the same embedding and neighbourhood structure with that label
+randomly shuffled (seeded from `seed.master`). The null is the fully-mixed
+reference *for that label under the actual neighbourhood size*, so no cross-`k`
+comparison arises and the perplexity ceiling cancels.
+
+- `patient_id`: observed should approach its null (patients mixed -> correction worked).
+- `timepoint`: observed should sit well below its null (primary and recurrent still
+  separable -> RAS component T preserved).
+
+### PRE-SPECIFIED decision rule
+
+| Outcome | Response |
+|---|---|
+| **(a)** timepoint **below** its null AND patient **near** its null | **PASS.** Proceed to RAS construction. |
+| **(b)** timepoint **below** its null BUT patient **far below** its null | **PROCEED, with a stated limitation.** Integration under-corrected across patients. Report the LISI values in the paper as a limitation. **Do NOT retune Harmony `theta` to force mixing.** |
+| **(c)** timepoint **at or above** its null | **REAL FAILURE.** Invoke **STOP/GO gate 1** and stop. Component T is compromised; no RAS work proceeds on this embedding. |
+
+Outcome (b) is explicitly a *proceed* condition. Under-correction across patients
+is a weaker embedding, not a circular one: it does not manufacture the
+primary-vs-recurrent similarity that RAS component T measures. Tuning `theta`
+upward until patients mix would be fitting a preprocessing parameter to make a
+diagnostic look better, with no outcome-independent justification — precisely the
+data-dependent choice the equal-weighting decision in CLAUDE.md §3.3 exists to
+avoid. The honest report of a weaker embedding is preferred.
+
+`lisi_timepoint_fail_ratio` is retired from `configs/runtime_thresholds.yaml`; the
+permutation gate has no tunable ratio, which is part of its appeal.
+
+
 ## 2026-08-24 00:25 UTC — CORRECTION to frozen config: Harmony batch key was wrong
 
 - **Affects:** `configs/pipeline_config.yaml` -> `integration.batch_key`.
