@@ -1,0 +1,4 @@
+component,pooled_sd,pooled_all_nan,n_patients_zero_variance,n_patients_total,within_patient_nan_cells,within_patient_nan_frac
+T,0.17793,False,0,21,0,0.0
+G,0.13301,False,19,21,13973,0.9499
+Ab_clone,1.96764,False,0,21,0,0.0

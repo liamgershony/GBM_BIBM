@@ -54,6 +54,45 @@ deviation list has a single source. They are NOT post-hoc changes.
 
 <!-- Append new entries below this line. -->
 
+## 2026-08-24 04:13 UTC — SPECIFICATION GAP RESOLVED: z() scope is POOLED ACROSS THE COHORT
+
+- **Affects:** every `z()` in CLAUDE.md §3.3 — Tier A `0.25·z(T)+0.25·z(G)+0.25·z(O)+0.25·z(Ab_state)` and Tier C-disjoint `0.5·z(G)+0.5·z(Ab_clone)`.
+- **Class:** specification gap in the frozen config, resolved. Not a parameter change.
+- **Authorised by:** Liam Gershony (Lane 1).
+- **Decision:** `z()` is computed **pooled across the whole discovery cohort**, once
+  per component, not within patient.
+
+**The gap.** `configs/pipeline_config.yaml` records `ras.standardize: "zscore"` and
+CLAUDE.md §3.3 writes `z(...)` without stating the scope. Pooled and within-patient
+give materially different answers, so the pipeline cannot proceed without fixing it.
+
+**Numerical grounds, measured before any RAS value was examined**
+(`results/tables/zscope_comparison.csv`, from `src/03a_ras_component_diagnostics.py`,
+over 14,710 primary malignant nuclei in 21 patients):
+
+| component | pooled SD | patients with zero within-patient variance | cells that would be NaN under within-patient z |
+|---|---|---|---|
+| T | 0.17793 | 0/21 | 0 (0.00%) |
+| G | 0.13301 | **19/21** | **13,973 (94.99%)** |
+| Ab_clone | 1.96764 | 0/21 | 0 (0.00%) |
+
+**Within-patient z-scoring is a divide-by-zero for G in 19 of 21 patients**, which
+would render 95% of all cells' G undefined and make Tier C-disjoint uncomputable
+for almost the whole cohort. Pooled z is well defined for every component in every
+patient. The decision is therefore forced numerically, not chosen on preference.
+
+**This was decided on the definedness of the statistic, not on any RAS value or any
+downstream result.** No RAS score existed when it was made, and no H3 or H1 output
+existed. `O` and `Ab(state)` are not yet built and inherit the same pooled rule.
+
+**Consequence that must be stated in the paper.** Pooled z-scoring means each
+component's variance includes a between-patient part. Stage A's patient random
+intercept (§3.5) then absorbs that part. For a component whose variance is almost
+entirely between-patient — which G now is — the contribution to the Stage A
+**residual** is close to zero even though its contribution to raw RAS is large.
+See the Tier A variance entry in `results/tables/tier_a_variance.csv`.
+
+
 ## 2026-08-24 02:39 UTC — Operationalising the LISI permutation gate (recorded BEFORE computing it)
 
 - **Affects:** the Step 3 gate in `src/02_integration.py`.
