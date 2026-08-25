@@ -1,17 +1,17 @@
 patient_id,timepoint,is_failing_timepoint,specimens,n_libraries,n_input,n_post_gene_filter,lost_to_gene_filter,n_post_mito_filter,lost_to_mito_filter,n_doublets_removed,n_post_qc,qc_retention,n_annotated,n_unknown,annotation_coverage,n_malignant,n_normal,alias_mapping_used,diagnosis,explanation
 4,Primary,True,SF10432,1,994,16,978,16,0,0,16,0.0161,16,0,1.0,15,1,False,QC_ATTRITION,994 -> 16 nuclei (2% retained) through QC
-4,Recurrent,False,SF11248,1,1895,1495,400,1495,0,0,1495,0.7889,1495,0,1.0,735,760,False,PASSES,735 malignant >= 100
+4,Recurrent,False,SF11248,1,1895,1495,400,1495,0,10,1485,0.7836,1485,0,1.0,730,755,False,PASSES,730 malignant >= 100
 8,Primary,True,SF1199,1,634,2,632,2,0,0,2,0.0032,2,0,1.0,1,1,False,QC_ATTRITION,634 -> 2 nuclei (0% retained) through QC
-8,Recurrent,False,SF1343,1,2736,2589,147,2589,0,0,2589,0.9463,2589,0,1.0,1969,620,False,PASSES,1969 malignant >= 100
-15,Primary,False,SF3996,1,463,318,145,318,0,0,318,0.6868,318,0,1.0,232,86,True,PASSES,232 malignant >= 100
-15,Recurrent,True,SF4449,2,8402,1599,6803,1599,0,0,1599,0.1903,948,651,0.5929,13,935,False,QC_ATTRITION,8402 -> 1599 nuclei (19% retained) through QC
+8,Recurrent,False,SF1343,1,2736,2589,147,2589,0,34,2555,0.9338,2555,0,1.0,1954,601,False,PASSES,1954 malignant >= 100
+15,Primary,False,SF3996,1,463,318,145,318,0,3,315,0.6803,315,0,1.0,230,85,True,PASSES,230 malignant >= 100
+15,Recurrent,True,SF4449,2,8402,1599,6803,1599,0,12,1587,0.1889,944,643,0.5948,13,931,False,QC_ATTRITION,8402 -> 1587 nuclei (19% retained) through QC
 18,Primary,False,SF4810,2,618,434,184,434,0,0,434,0.7023,416,18,0.9585,399,17,False,PASSES,399 malignant >= 100
-18,Recurrent,True,SF6098,1,1749,1613,136,1613,0,0,1613,0.9222,1613,0,1.0,47,1566,False,ANNOTATED_NON_TUMOUR,"1613 nuclei annotated, but only 47 called Tumor (1566 Normal) -- authors' own call"
-21,Primary,True,SF6809,1,191,89,102,89,0,0,89,0.466,89,0,1.0,85,4,False,GENUINE_SPARSITY,191 in -> 89 post-QC -> 85 malignant
+18,Recurrent,True,SF6098,1,1749,1613,136,1613,0,13,1600,0.9148,1600,0,1.0,46,1554,False,ANNOTATED_NON_TUMOUR,"1600 nuclei annotated, but only 46 called Tumor (1554 Normal) -- authors' own call"
+21,Primary,True,SF6809,1,191,89,102,89,0,9,80,0.4188,80,0,1.0,77,3,False,GENUINE_SPARSITY,191 in -> 80 post-QC -> 77 malignant
 21,Recurrent,True,SF7025,1,348,6,342,6,0,0,6,0.0172,6,0,1.0,4,2,True,QC_ATTRITION,348 -> 6 nuclei (2% retained) through QC
-28,Primary,True,SF9871,1,3602,3598,4,3598,0,0,3598,0.9989,3598,0,1.0,3,3595,False,ANNOTATED_NON_TUMOUR,"3598 nuclei annotated, but only 3 called Tumor (3595 Normal) -- authors' own call"
-28,Recurrent,False,SF10108,1,4446,4265,181,4265,0,0,4265,0.9593,4265,0,1.0,2748,1517,False,PASSES,2748 malignant >= 100
+28,Primary,True,SF9871,1,3602,3598,4,3598,0,1,3597,0.9986,3597,0,1.0,3,3594,False,ANNOTATED_NON_TUMOUR,"3597 nuclei annotated, but only 3 called Tumor (3594 Normal) -- authors' own call"
+28,Recurrent,False,SF10108,1,4446,4265,181,4265,0,99,4166,0.937,4166,0,1.0,2713,1453,False,PASSES,2713 malignant >= 100
 34,Primary,True,SF12115,1,253,31,222,31,0,0,31,0.1225,31,0,1.0,4,27,False,QC_ATTRITION,253 -> 31 nuclei (12% retained) through QC
-34,Recurrent,False,SF12751,1,4132,4091,41,4091,0,0,4091,0.9901,4091,0,1.0,577,3514,False,PASSES,577 malignant >= 100
-35,Primary,False,SF11587,1,1300,137,1163,137,0,0,137,0.1054,137,0,1.0,135,2,False,PASSES,135 malignant >= 100
-35,Recurrent,True,SF11981,1,1359,1175,184,1175,0,0,1175,0.8646,0,1175,0.0,0,0,False,ANNOTATION_ARTIFACT,1175 nuclei survived QC but 0 carry an author annotation
+34,Recurrent,False,SF12751,1,4132,4091,41,4091,0,2,4089,0.9896,4089,0,1.0,577,3512,False,PASSES,577 malignant >= 100
+35,Primary,False,SF11587,1,1300,137,1163,137,0,1,136,0.1046,136,0,1.0,134,2,False,PASSES,134 malignant >= 100
+35,Recurrent,True,SF11981,1,1359,1175,184,1175,0,3,1172,0.8624,0,1172,0.0,0,0,False,ANNOTATION_ARTIFACT,1172 nuclei survived QC but 0 carry an author annotation
