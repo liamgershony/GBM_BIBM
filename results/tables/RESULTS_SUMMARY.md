@@ -239,6 +239,9 @@ model. Both recorded in the output table.
 
 ## 7. What the Results section must say
 
+0. **The stability result in §7b is a finding, not a caveat.** Two full runs of
+   identical code over identical data give the same hypothesis outcomes and
+   different gene lists. Present it as a result with a limitation attached.
 1. **H3 v1 is significant (p = 0.0010) but the effect is two genes.** Tier C's 30%
    list has **three** genes; the overlap is two of them. A p-value computed against
    a near-zero null is easy to clear with a tiny list. Report the Jaccard, the list
@@ -262,38 +265,86 @@ model. Both recorded in the output table.
 
 ---
 
-## 7b. Reproducibility — READ BEFORE QUOTING ANY NUMBER
+## 7b. RESULT — measured stability: conclusions reproduce, gene lists do not
 
-The pipeline was re-run start to finish from `data/raw/` with every derived
-artefact purged (`scripts/repro_run.sh`), and compared
-(`reproducibility_check.csv`). **All 18 raw files verified against their SHA256.**
+**This is a result, not only a limitation.** The pipeline was executed twice, start
+to finish from `data/raw/`, with every derived artefact purged between runs
+(`scripts/repro_run.sh`; comparison in `reproducibility_check.csv`). All 18 raw
+files verified against their recorded SHA256. The two runs give the same answers to
+every hypothesis and different values for every gene list.
 
-**27 of 49 headline quantities reproduce exactly. 22 do not.**
+Presenting it this way matters: the fragility of the discovery is **measured**
+here, not argued. §7's caution said a 2-gene overlap is fragile; this section shows
+it becoming a 3-gene overlap on a second run of identical code over identical data.
 
-**Exact, both runs:** 21 patients; 68 libraries; 14,710 RAS nuclei; Stage A R2
-0.5252 / 0.5572; target correlations 0.6521 / 0.4119 / 0.2763.
+### Deterministic through Stage A
 
-**Not exact:**
+Reproduces exactly, or to floating-point noise:
 
-| quantity | run 1 | run 2 |
+| Quantity | Both runs |
+|---|---|
+| Patients passing clause (d) | 21 |
+| Cohort libraries | 68 |
+| RAS nuclei | 14,710 (identical nucleus set) |
+| G, Ab(state), Ab(clone) | bit-identical |
+| T, RAS Tier A-reduced | max abs difference 2.4 × 10⁻¹¹ |
+| Cell-state and genotype-class calls | identical for every nucleus |
+| Stage A R², Tier A-reduced / Tier C-disjoint | 0.5252 / 0.5572 |
+| Target correlations v1 / v2 / v3 | 0.6521 / 0.4119 / 0.2763 |
+
+### Non-deterministic from Stage B onward
+
+| Quantity | Run 1 (reported) | Run 2 |
 |---|---|---|
-| v1_tierA @30% | 46 genes | 33 |
-| v1_tierC @30% | 3 | 4 |
-| H3 v1 Jaccard | 0.0426 | 0.0882 |
-| H3 v3 Jaccard | 0.0385 | 0.0444 |
-| H1 mean ΔR | +3.41 pp | +4.78 pp |
+| Stage B v1_tierA @30% | **46** genes | 33 |
+| Stage B v1_tierC @30% | **3** | 4 |
+| Stage B v2_tierA @30% | **3** | 2 |
+| Stage B v3_tierA @30% | **43** | 35 |
+| Stage B v3_tierC @30% | **11** | 12 |
+| H3 v1 overlap | **2** genes | 3 |
+| H3 v1 Jaccard | **0.0426** | 0.0882 |
+| H3 v3 Jaccard | **0.0385** | 0.0444 |
+| H1 adjusted rate | **0.2801** | 0.2473 |
+| H1 unadjusted rate | **0.2461** | 0.1995 |
+| H1 mean ΔR | **+3.41 pp** | +4.78 pp |
+| Stage B units | 1,413 | 1,409 |
 
-**Cause:** `03_metacells_ot.py` time-boxes SEACells at 180 s of **wall clock** and
-falls back to k-means on expiry, so which groups fall back depends on machine load.
-Run 1: 35 SEACells / 7 fallback. Run 2: 36 / 6, and a different set of groups.
-Stage B units moved 1,413 → 1,409.
+### Cause
 
-**Every conclusion is stable.** H3 v1 significant (p = 0.000999 both runs), v2 not
-significant (p = 1.0 both), v3 significant, H1 an informative null with the
-interval containing zero in both, and no gene selected at 80% in either run.
+`src/03_metacells_ot.py` time-boxes SEACells at **180 seconds of wall clock** per
+patient-timepoint and substitutes k-means on expiry. Wall clock depends on machine
+load, so the fallback set changes between runs: run 1 used SEACells for 35 of 42
+groups, run 2 for 36, and **different groups** fell back (patients 9, 19 and 20
+Recurrent in run 1; patients 5 Recurrent and 20 Primary in run 2). A different
+metacell partition changes the Stage B units, hence the per-fold HVGs, hence the
+selected genes. SEACells' own convergence path is not fully seeded either.
 
-**So: quote the outcomes and p-values; do NOT quote a gene count or Jaccard as if
-it were exact.** Say that they vary between runs and why.
+### Every conclusion is stable across both runs
+
+- **H3 v1 (primary): significant**, p = 0.000999 in both runs.
+- **H3 v2: not significant**, p = 1.0000 and zero overlap in both runs.
+- **H3 v3: significant**, p = 0.001998 and 0.000999.
+- **H1: informative null** — interval contains zero and mean ΔR below the 10 pp
+  bound in both runs.
+- **No arm selects any gene at the 80% stability threshold in either run.**
+
+### How to write this
+
+State the outcomes and p-values as findings. State gene counts and Jaccard values
+as run-dependent, giving both runs. The claim the paper can defend is *"the
+disjoint control was passed"*, not *"these 46 genes"*.
+
+---
+
+## 7c. Which run the paper reports
+
+**The paper reports RUN 1**, snapshotted in `results/_repro_baseline/`.
+**Both figures are built exclusively from run 1** — `src/11_figures.py` reads every
+value from that directory, hardcodes nothing, and prints its run provenance on
+execution. No panel mixes runs.
+
+Run 2 lives in `results/tables/` and is recorded solely for §7b. When quoting run 2
+numbers, label them as the reproducibility re-run.
 
 ---
 

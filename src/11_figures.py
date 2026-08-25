@@ -21,9 +21,15 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 REPO = Path(__file__).resolve().parent.parent
-SRC = REPO / "results" / "_repro_baseline"          # stable snapshot
+# RUN PROVENANCE. The paper reports RUN 1, snapshotted in results/_repro_baseline/.
+# results/tables/ currently holds RUN 2 from the reproducibility check, whose
+# Stage B numbers differ (see RESULTS_SUMMARY.md §7b). Both figures must read from
+# ONE run; mixing them would put run-1 gene counts beside run-2 Jaccards.
+RUN_LABEL = "run 1 (results/_repro_baseline/)"
+SRC = REPO / "results" / "_repro_baseline"
 if not (SRC / "cohort_flow.csv").exists():
     SRC = REPO / "results" / "tables"
+    RUN_LABEL = "results/tables/ (baseline snapshot absent)"
 FIG = REPO / "results" / "figures"
 
 IEEE_W = 7.16          # full two-column width, inches
@@ -53,9 +59,16 @@ def figure1():
     flow = pd.read_csv(SRC / "cohort_flow.csv")
     ras = pd.read_csv(SRC / "ras_scores.csv")
 
-    steps = [("GSMs in GSE174554", 113), ("Human snRNA-seq", 81),
-             ("Matched pairs", 30), ("IDH-wildtype pairs", 29),
-             ("Pass clause (d)", 21)]
+    # read from cohort_flow.csv rather than hardcoding, so the figure cannot
+    # drift from the table it claims to depict
+    want = {"GSMs in GSE174554": "GSMs in GSE174554",
+            "human snRNA-seq GSMs": "Human snRNA-seq",
+            "matched pairs (clauses a+b)": "Matched pairs",
+            "IDH-wildtype pairs (clause c)": "IDH-wildtype pairs"}
+    lut = dict(zip(flow["stage"], flow["count"]))
+    steps = [(lbl, int(lut[k])) for k, lbl in want.items()]
+    dkey = [k for k in lut if k.startswith("patients passing clause (d)")][0]
+    steps.append(("Pass clause (d)", int(lut[dkey])))
     fig, (ax1, ax2) = plt.subplots(
         1, 2, figsize=(IEEE_W, 2.55), gridspec_kw={"width_ratios": [1.05, 1]})
 
@@ -115,7 +128,14 @@ def figure2():
     conf = yaml.safe_load(open(REPO / "configs" / "pipeline_config.yaml"))
     seed = conf["seed"]["master"]; n_perm = conf["h3_circularity"]["n_permutations"]
     alpha = conf["h3_circularity"]["alpha"]
-    nA, nC = 33694, 31744                       # eligible universes, from 08
+    # eligible universes derived, not hardcoded; both are run-invariant
+    import anndata as ad_
+    from _genome import annotate_var as _av
+    _mc = ad_.read_h5ad(REPO / "data" / "interim" / "metacell_expression.h5ad")
+    _ann = _av(_mc.var_names, conf["disjoint_set_S"]["regions"])
+    nA = int(_mc.n_vars)
+    nC = int((~_ann["in_disjoint_set_S"].fillna(False).values).sum())
+    assert (nA, nC) == (33694, 31744), f"universes changed: {(nA, nC)}"
 
     def jac(a, b):
         a, b = set(a), set(b)
@@ -181,7 +201,8 @@ def figure2():
 
 def main() -> int:
     FIG.mkdir(parents=True, exist_ok=True)
-    print(f"source tables: {SRC.relative_to(REPO)}")
+    print(f"RUN PROVENANCE: every value in both figures comes from {RUN_LABEL}")
+    print(f"source tables : {SRC.relative_to(REPO)}")
     figure1(); figure2()
     print(f"\nwrote {FIG.relative_to(REPO)}/figure1_cohort_and_ras.[pdf|png]")
     print(f"wrote {FIG.relative_to(REPO)}/figure2_h3_permutation.[pdf|png]")
