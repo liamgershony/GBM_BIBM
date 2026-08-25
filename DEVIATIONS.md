@@ -54,6 +54,93 @@ deviation list has a single source. They are NOT post-hoc changes.
 
 <!-- Append new entries below this line. -->
 
+## 2026-08-25 21:46 UTC — REPRODUCIBILITY CHECK: deterministic through Stage A, NOT after
+
+- **Affects:** every Stage B, H3 and H1 number. Conclusions unaffected.
+- **Class:** **defect found by the reproducibility check.** Reported, not patched.
+- **Authorised by:** Liam Gershony (Lane 1).
+
+The full pipeline was re-run from `data/raw/` with every derived artefact purged
+first (`scripts/repro_run.sh`), and compared against the original run
+(`scripts/repro_compare.py` -> `results/tables/reproducibility_check.csv`).
+
+**All 18 raw files verified against their recorded SHA256.**
+
+**27 of 49 headline quantities reproduce exactly; 22 do not.**
+
+### What reproduces exactly
+
+Everything up to and including Stage A:
+
+| quantity | value, both runs |
+|---|---|
+| patients passing clause (d) | 21 |
+| cohort libraries | 68 |
+| RAS nuclei | 14,710 |
+| Stage A R2 (+patient), Tier A-reduced | 0.5252 |
+| Stage A R2 (+patient), Tier C-disjoint | 0.5572 |
+| target correlations v1 / v2 / v3 | 0.6521 / 0.4119 / 0.2763 |
+
+### What does not
+
+| quantity | run 1 | run 2 |
+|---|---|---|
+| Stage B v1_tierA @30% | 46 genes | **33** |
+| Stage B v1_tierC @30% | 3 | **4** |
+| Stage B v3_tierA @30% | 43 | **35** |
+| Stage B v3_tierC @30% | 11 | **12** |
+| H3 v1 Jaccard | 0.0426 | **0.0882** |
+| H3 v3 Jaccard | 0.0385 | **0.0444** |
+| H1 mean dR | +3.41 pp | **+4.78 pp** |
+| H1 adjusted / unadjusted rate | 0.2801 / 0.2461 | **0.2473 / 0.1995** |
+
+### Cause: metacell construction is not deterministic
+
+`src/03_metacells_ot.py` time-boxes SEACells at **180 seconds of wall clock** per
+patient-timepoint and falls back to k-means on expiry. Wall clock depends on
+machine load, so which groups fall back changes between runs:
+
+| run | SEACells | k-means fallback |
+|---|---|---|
+| 1 (baseline) | 35 groups | 7 (all `RuntimeWarning`) |
+| 2 (re-run) | 36 groups | 4 `RuntimeWarning` + **2 `TimeoutError`** |
+
+The groups differ: patients 9, 19 and 20 (Recurrent) fell back only in run 1;
+patients 5 (Recurrent) and 20 (Primary) only in run 2. Stage B units moved
+1,413 -> 1,409. A different metacell partition gives different Stage B units,
+hence different HVGs per fold, hence different gene lists.
+
+The `RuntimeWarning` count also changed (7 -> 4), so SEACells' own convergence
+path is not fully seeded either. **A wall-clock criterion inside a pipeline whose
+credibility rests on reproducibility is a design error**, and it is mine.
+
+### The conclusions are stable; the numbers are not
+
+Across both runs:
+- **H3 v1 (primary) significant**: p = 0.000999 in both.
+- **H3 v2 not significant**: p = 1.0000 in both, zero overlap in both.
+- **H3 v3 significant**: p = 0.001998 and 0.000999.
+- **H1 informative null**: interval includes zero in both; mean dR below 10 pp in both.
+- No arm selects any gene at the 80% threshold in either run.
+
+So every hypothesis outcome and every §6.1 classification is unchanged. What moves
+is the exact gene count, the exact Jaccard, and the exact replication rate.
+
+### Consequence for the paper
+
+1. **The paper must not quote a single Jaccard as exact.** Report the H3 outcome and
+   p-value, and state that gene counts and Jaccard vary run to run because metacell
+   assignment is not deterministic.
+2. **This strengthens rather than weakens the §7 caution** already recorded in
+   `RESULTS_SUMMARY.md`: an overlap of 2-3 genes against a 3-4 gene Tier C list is
+   fragile, and the re-run demonstrates that fragility directly rather than by argument.
+3. **Recommended fix, NOT applied here:** replace the wall-clock time box with a
+   deterministic criterion — a fixed iteration cap, and a per-group method decision
+   made from data rather than from elapsed time. Applying it now would require
+   re-running everything and would change every number again before the deadline.
+   It is recorded as the first thing to fix after submission.
+
+
 ## 2026-08-25 18:26 UTC — H3 run in three variants; fold imbalance; H1 resample simplification
 
 - **Affects:** H3 reporting; the Nadeau-Bengio correction; H1's procedure.

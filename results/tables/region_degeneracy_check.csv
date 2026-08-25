@@ -1,0 +1,5 @@
+region,n_patients_converged,median_windows,median_clones,min_clones,max_clones,n_patients_single_clone,n_patients_multi_clone,frac_patients_degenerate,informative
+chr7,21,93.0,12.0,8,17,0,21,0.0,True
+chr9p,21,23.0,10.0,6,16,0,21,0.0,True
+chr10,21,81.0,13.0,7,17,0,21,0.0,True
+ALL_S_combined,21,197.0,11.0,8,16,0,21,0.0,True

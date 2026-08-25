@@ -262,6 +262,41 @@ model. Both recorded in the output table.
 
 ---
 
+## 7b. Reproducibility — READ BEFORE QUOTING ANY NUMBER
+
+The pipeline was re-run start to finish from `data/raw/` with every derived
+artefact purged (`scripts/repro_run.sh`), and compared
+(`reproducibility_check.csv`). **All 18 raw files verified against their SHA256.**
+
+**27 of 49 headline quantities reproduce exactly. 22 do not.**
+
+**Exact, both runs:** 21 patients; 68 libraries; 14,710 RAS nuclei; Stage A R2
+0.5252 / 0.5572; target correlations 0.6521 / 0.4119 / 0.2763.
+
+**Not exact:**
+
+| quantity | run 1 | run 2 |
+|---|---|---|
+| v1_tierA @30% | 46 genes | 33 |
+| v1_tierC @30% | 3 | 4 |
+| H3 v1 Jaccard | 0.0426 | 0.0882 |
+| H3 v3 Jaccard | 0.0385 | 0.0444 |
+| H1 mean ΔR | +3.41 pp | +4.78 pp |
+
+**Cause:** `03_metacells_ot.py` time-boxes SEACells at 180 s of **wall clock** and
+falls back to k-means on expiry, so which groups fall back depends on machine load.
+Run 1: 35 SEACells / 7 fallback. Run 2: 36 / 6, and a different set of groups.
+Stage B units moved 1,413 → 1,409.
+
+**Every conclusion is stable.** H3 v1 significant (p = 0.000999 both runs), v2 not
+significant (p = 1.0 both), v3 significant, H1 an informative null with the
+interval containing zero in both, and no gene selected at 80% in either run.
+
+**So: quote the outcomes and p-values; do NOT quote a gene count or Jaccard as if
+it were exact.** Say that they vary between runs and why.
+
+---
+
 ## 8. Reproducing this
 
 Every input is regenerable by `src/00*.py` **except one**: Neftel Table S2

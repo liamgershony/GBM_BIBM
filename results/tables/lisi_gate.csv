@@ -1,0 +1,8 @@
+label,k,median_lisi_observed,median_lisi_null,ratio_observed_over_null
+patient_id,21,2.7447,7.7343,0.3549
+timepoint,2,1.2612,1.8995,0.664
+n_permutations,,,,3
+cutoff_timepoint_below_null,,,,0.95
+cutoff_patient_near_null,,,,0.8
+outcome,,,,b
+gate,,,,PASS

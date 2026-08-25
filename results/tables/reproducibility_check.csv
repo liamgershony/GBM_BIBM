@@ -1,0 +1,50 @@
+quantity,baseline,rerun,match
+cohort_n.n_patients,21.0,21.0,True
+cohort_flow,8.0,8.0,True
+discovery_cohort rows,68.0,68.0,True
+ras_scores rows,14710.0,14710.0,True
+stage_a R2 +patient [ras_tier_a_reduced],0.5252,0.5252,True
+stage_a R2 +patient [ras_tier_c_disjoint],0.5572,0.5572,True
+stage_b v1_tierA @0.3,46.0,33.0,False
+stage_b v1_tierA @0.5,4.0,5.0,False
+stage_b v1_tierA @0.8,0.0,0.0,True
+stage_b v1_tierC @0.3,3.0,4.0,False
+stage_b v1_tierC @0.5,0.0,0.0,True
+stage_b v1_tierC @0.8,0.0,0.0,True
+stage_b v2_tierA @0.3,3.0,2.0,False
+stage_b v2_tierA @0.5,0.0,0.0,True
+stage_b v2_tierA @0.8,0.0,0.0,True
+stage_b v2_tierC @0.3,1.0,1.0,True
+stage_b v2_tierC @0.5,0.0,0.0,True
+stage_b v2_tierC @0.8,0.0,0.0,True
+stage_b v3_tierA @0.3,43.0,35.0,False
+stage_b v3_tierA @0.5,5.0,4.0,False
+stage_b v3_tierA @0.8,0.0,0.0,True
+stage_b v3_tierC @0.3,11.0,12.0,False
+stage_b v3_tierC @0.5,1.0,1.0,True
+stage_b v3_tierC @0.8,0.0,0.0,True
+H3 v1.n_genes_tierA,46.0,33.0,False
+H3 v1.n_genes_tierC,3.0,4.0,False
+H3 v1.n_overlap,2.0,3.0,False
+H3 v1.jaccard_observed,0.042553,0.088235,False
+H3 v1.p_value,0.000999,0.000999,True
+H3 v1.target_correlation,0.6521,0.6521,True
+H3 v2.n_genes_tierA,3.0,2.0,False
+H3 v2.n_genes_tierC,1.0,1.0,True
+H3 v2.n_overlap,0.0,0.0,True
+H3 v2.jaccard_observed,0.0,0.0,True
+H3 v2.p_value,1.0,1.0,True
+H3 v2.target_correlation,0.4119,0.4119,True
+H3 v3.n_genes_tierA,43.0,35.0,False
+H3 v3.n_genes_tierC,11.0,12.0,False
+H3 v3.n_overlap,2.0,2.0,True
+H3 v3.jaccard_observed,0.038462,0.044444,False
+H3 v3.p_value,0.001998,0.000999,True
+H3 v3.target_correlation,0.2763,0.2763,True
+H1 mean rate_adjusted,0.2801,0.2473,False
+H1 mean rate_unadjusted,0.2461,0.1995,False
+H1 mean delta_R,0.0341,0.0478,False
+gene list v1_tierA@30 identical,46.0,33.0,False
+gene list v1_tierC@30 identical,3.0,4.0,False
+gene list v3_tierA@30 identical,43.0,35.0,False
+gene list v3_tierC@30 identical,11.0,12.0,False
