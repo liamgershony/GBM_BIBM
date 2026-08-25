@@ -54,6 +54,80 @@ deviation list has a single source. They are NOT post-hoc changes.
 
 <!-- Append new entries below this line. -->
 
+## 2026-08-25 17:54 UTC — Stage A is predominantly patient-level centring, and the two tiers share G
+
+- **Affects:** interpretation of H1 and, more seriously, of **H3**. No parameter changes.
+- **Authorised by:** Liam Gershony (Lane 1).
+- **Belongs in the paper's interpretation, not only in this log.**
+
+### (a) What Stage A actually removes
+
+| Tier | R², state + genotype | R², + patient | Variance remaining |
+|---|---|---|---|
+| A-reduced | **0.1112** | 0.5252 | 47.48% |
+| C-disjoint | **0.1772** | 0.5572 | 44.28% |
+
+State and genotype together explain only 11–18% of RAS. Nearly all of Stage A's
+explanatory power comes from the patient term. **The confound adjustment is
+predominantly patient-level centring rather than removal of state and genotype.**
+H1 asks whether confound adjustment improves external replication; if H1 shows a
+benefit, the honest reading is that most of it comes from patient centring, not
+from removing the cell-state and genotype confounds the protocol names.
+
+### (b) CORRECTION: Stage A does NOT remove between-patient variance
+
+An earlier entry in this log stated that Stage A's patient random intercept removes
+G's purely between-patient variance, and therefore that Tier A-reduced behaves as
+`0.5·z(T) + 0.5·z(Ab_state)` after Stage A. **That was wrong.**
+
+§3.5 specifies that the held-out patient's random effect is predicted as **0**.
+Only the state and genotype *fixed* effects are subtracted, so the patient offset
+`u_p` remains in the residual. Measured: Tier A-reduced is 46.4% between-patient
+variance raw and **47.7% after Stage A** — the patient structure is not reduced.
+
+Consequently **G does contribute to the Stage A residual that Stage B fits**, and
+the earlier "effectively two-component" description applies to the raw score's
+within-patient behaviour, not to the residual. The corrected statement: G is
+constant within 19/21 patients, so it contributes no *within-patient* variance at
+any stage, but its *between-patient* variance survives Stage A intact.
+
+### (c) The two tiers are NOT independent by construction
+
+`Tier A-reduced = (1/3)z(T) + (1/3)z(G) + (1/3)z(Ab_state)`
+`Tier C-disjoint = 0.5·z(G) + 0.5·z(Ab_clone)`
+
+**Both contain z(G).** Measured contribution:
+
+| quantity | value |
+|---|---|
+| corr(Tier A, Tier C) | **0.5634** |
+| corr with the shared G removed from both | **0.1366** |
+| z(G) share of Tier A variance | 23.0% |
+| z(G) share of Tier C variance | 38.2% |
+| corr(Stage A residuals) | **0.6521** |
+| corr(Stage A residuals), patient-centred | 0.4119 |
+
+**Roughly three quarters of the correlation between the two tiers is the shared G
+term.** H3 tests whether genes selected under Tier A overlap those selected under
+Tier C-disjoint above a permutation baseline. Because the two targets share a
+component, some overlap is expected **by construction**, and a permutation null
+that shuffles labels does not account for correlation between the targets
+themselves.
+
+This is a property of the protocol as frozen in §3.3, not a change introduced here,
+and it is recorded **before H3 is run** so the result cannot be reinterpreted
+afterwards. **H3's Jaccard index must be reported alongside this shared-component
+correlation**, and the claim narrowed accordingly: a significant overlap does not
+by itself demonstrate a shared biological programme, because part of the overlap is
+attributable to the shared G term.
+
+One mitigation is real and worth stating: the *cis* route is still closed for Tier
+C. Stage B's feature matrix for Tier C-disjoint excludes every gene on chr7, chr9p
+and chr10, so genes whose expression tracks the copy number that defines G cannot
+be selected in that arm. What remains shared is the *trans* route and the
+patient-level offset.
+
+
 ## 2026-08-25 17:36 UTC — Metacells: SEACells in 33/42 groups, k-means contingency in 9
 
 - **Affects:** `data/processed/07_metacells.h5ad`, `results/tables/metacell_catalog.csv`.
