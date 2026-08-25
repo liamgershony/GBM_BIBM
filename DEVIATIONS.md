@@ -54,6 +54,95 @@ deviation list has a single source. They are NOT post-hoc changes.
 
 <!-- Append new entries below this line. -->
 
+## 2026-08-25 17:36 UTC — Metacells: SEACells in 33/42 groups, k-means contingency in 9
+
+- **Affects:** `data/processed/07_metacells.h5ad`, `results/tables/metacell_catalog.csv`.
+- **Authorised by:** Liam Gershony (Lane 1).
+
+SEACells converged for **33 of 42** patient-timepoint groups. The §9.1 k-means
+contingency fired for **9**: 7 exceeded the 180 s per-group time box and 2 raised a
+numerical `RuntimeWarning`. The method used is recorded per group in the `method`
+column of `metacell_catalog.csv`, so no group's provenance is ambiguous.
+2,426 metacells over 72,857 malignant nuclei; median 30.0 nuclei per metacell
+against a target of 30.
+
+**An earlier run must not be cited as evidence about SEACells.** It fell back in
+all 42 groups on `ImportError: IProgress not found` — a missing `ipywidgets`
+progress-bar dependency, not non-convergence. `ipywidgets==8.1.5` is now pinned and
+imported explicitly. The 33/42 figure above is from the first run in which SEACells
+was actually exercised.
+
+
+## 2026-08-25 17:36 UTC — CONTINGENCY INVOKED: component O dropped, Tier A-reduced adopted
+
+- **Affects:** CLAUDE.md §3.2 component **O**; §3.3 Tier A weights; the name of the
+  Tier A score throughout the paper.
+- **Class:** **specification error**, not a data-driven choice. Pre-declared
+  contingency in CLAUDE.md §9.1 invoked.
+- **Authorised by:** Liam Gershony (Lane 1).
+
+**O is degenerate by construction, and no data could have made it otherwise.**
+§3.2 defines O as "total optimal-transport mass moved from cell *i*'s metacell to
+any recurrent-timepoint metacell". For **balanced** optimal transport the transport
+plan's marginals are fixed: the row sums of the plan equal the source weights
+exactly. O is therefore identically the metacell's own mass — its size — and
+carries no information about transport at all.
+
+Measured (`results/tables/ot_component_O.csv`, `src/03_metacells_ot.py`):
+
+| quantity | value |
+|---|---|
+| corr(O, source marginal) | **1.000000** |
+| max abs difference | **2.25e-16** (floating-point noise) |
+
+This is an algebraic identity of `ot.emd`, not a property of GBM, this cohort, or
+our preprocessing. It would hold for any dataset. **The error is in the protocol's
+definition of O, not in the data.**
+
+**Action, per §9.1:** component **O is dropped** and the score is
+**Tier A-reduced = (T, G, Ab_state)**, named as such in the paper. Never silently
+reweighted under the Tier A name. The RAS column is `ras_tier_a_reduced`.
+
+**A transport-cost alternative was computed and NOT substituted.** The cost
+actually incurred by each metacell, `sum_j T[i,j] * M[i,j]`, is non-degenerate
+(mean 0.1991, sd 0.5188) and is recorded in `ot_component_O.csv` as
+`transport_cost_diagnostic`. It is **not** used as O and does not enter any score.
+Replacing a pre-registered component with a different statistic after discovering
+the original was degenerate would be a post-hoc redefinition, which is exactly what
+freezing the components a priori exists to prevent. **O is dropped, not redesigned.**
+
+The optimal transport machinery itself ran correctly and is retained for the
+record: SEACells metacells per patient-timepoint and `ot.emd` on a PCA-Euclidean
+cost matrix, over all 21 patients. Nothing failed to converge.
+
+## 2026-08-25 17:36 UTC — Tier A-reduced is in practice a two-component score
+
+- **Affects:** how Tier A-reduced is described in the paper. **No weight is changed.**
+- **Authorised by:** Liam Gershony (Lane 1).
+
+With O dropped, Tier A-reduced is
+`(1/3)·z(T) + (1/3)·z(G) + (1/3)·z(Ab_state)` at the frozen equal weighting.
+
+**G is constant within 19 of 21 patients** (`results/tables/genotype_class_degeneracy.csv`;
+see `results/tables/negative_control_failures.md` §3). Its variance is almost
+entirely *between* patients: pooled variance 0.017690, median within-patient
+variance **0.000000**. Stage A regresses RAS on state, genotype and a **patient
+random intercept**, which removes precisely that between-patient variance.
+
+> **After Stage A, Tier A-reduced behaves as `0.5·z(T) + 0.5·z(Ab_state)` in
+> effect**, because G contributes essentially nothing to the residual that Stage B
+> predicts.
+
+**The weights are NOT changed.** They stay at the frozen equal thirds. Reweighting
+after observing which component degenerates would be a data-dependent choice, and
+the equal-weighting decision in CLAUDE.md §3.3 exists specifically to remove that
+route. We report the effective structure and leave the specification alone.
+
+The paper must state the weighting *and* the effective structure. Reporting three
+equally weighted components without noting that one is within-patient constant
+would misdescribe the score.
+
+
 ## 2026-08-24 07:57 UTC — MANUAL INPUT: Neftel Table S2 cannot be fetched automatically
 
 - **Affects:** `data/raw/neftel_signatures/NIHMS1532254-supplement-9.xlsx`; the

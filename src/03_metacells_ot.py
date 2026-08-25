@@ -43,6 +43,7 @@ COHORT_N = REPO / "results" / "tables" / "cohort_n.json"
 OUT_MC = REPO / "data" / "processed" / "07_metacells.h5ad"
 OUT_MC_CSV = REPO / "results" / "tables" / "metacell_catalog.csv"
 OUT_O = REPO / "results" / "tables" / "ot_component_O.csv"
+OUT_ASSIGN = REPO / "results" / "tables" / "metacell_assignments.csv"
 
 SEACELLS_TIMEBOX_S = 180     # per patient-timepoint; then fall back, do not debug
 
@@ -100,7 +101,7 @@ def main() -> int:
     obs = adata.obs
     log(f"malignant nuclei: {adata.n_obs:,}")
 
-    rows, mc_rows = [], []
+    rows, mc_rows, assign_rows = [], [], []
     for p in pts:
         for tp in ("Primary", "Recurrent"):
             sel = ((obs["patient_id"].astype(str) == p)
@@ -109,8 +110,12 @@ def main() -> int:
                 continue
             E = emb_all[sel]
             lab, method = build_metacells(E, target, seed, f"{p}/{tp}", log)
+            ids = np.asarray(obs.index)[sel]
             for c in np.unique(lab):
                 m = lab == c
+                assign_rows.extend(
+                    {"nucleus_id": nid, "metacell_id": f"{p}_{tp[:1]}_mc{int(c):03d}",
+                     "patient_id": p, "timepoint": tp} for nid in ids[m])
                 mc_rows.append({
                     "metacell_id": f"{p}_{tp[:1]}_mc{int(c):03d}",
                     "patient_id": p, "timepoint": tp,
@@ -126,6 +131,10 @@ def main() -> int:
 
     mc = pd.DataFrame(mc_rows)
     pd.DataFrame(rows).to_csv(OUT_MC_CSV, index=False)
+    # Stage B needs metacell-level EXPRESSION, so the nucleus -> metacell
+    # membership must be persisted, not just the centroids.
+    pd.DataFrame(assign_rows).to_csv(OUT_ASSIGN, index=False)
+    log(f"wrote {OUT_ASSIGN.relative_to(REPO)} ({len(assign_rows):,} nuclei)")
 
     # 07_metacells.h5ad: one row per metacell, X = Harmony centroid (docs/SCHEMA.md §2)
     mc_ad = ad.AnnData(np.vstack(mc["centroid"].values).astype("float32"))

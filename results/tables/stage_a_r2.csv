@@ -1,0 +1,3 @@
+tier,r2_state_genotype_only,r2_state_genotype_plus_patient,variance_remaining,ras_sd
+ras_tier_a_reduced,0.1112,0.5252,0.4748,0.6951
+ras_tier_c_disjoint,0.1772,0.5572,0.4428,0.809
