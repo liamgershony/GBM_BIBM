@@ -54,6 +54,76 @@ deviation list has a single source. They are NOT post-hoc changes.
 
 <!-- Append new entries below this line. -->
 
+## 2026-08-25 18:26 UTC — H3 run in three variants; fold imbalance; H1 resample simplification
+
+- **Affects:** H3 reporting; the Nadeau-Bengio correction; H1's procedure.
+- **Authorised by:** Liam Gershony (Lane 1).
+- Recorded **before any H3 or H1 result existed.**
+
+### (a) H3 in three variants, one primary and two declared sensitivities
+
+| variant | role | target correlation (nucleus level) |
+|---|---|---|
+| **v1** | **PRIMARY, exactly as pre-registered** — Stage A residuals, held-out random effect = 0, no centring | **+0.6521** |
+| v2 | SENSITIVITY — residuals centred within patient | +0.4119 |
+| v3 | SENSITIVITY — shared `z(G)` removed from both tiers and renormalised | +0.2763 |
+
+Raw-score correlations for reference: **+0.5634** with G, **+0.1366** without.
+
+**Variant 1 is the registered result and stands whatever it shows.** Variants 2 and
+3 are sensitivity analyses and are not replacements; no winner is designated.
+
+v2 exists because §3.5 states the patient intercept is there to absorb
+patient-level baseline shifts, but cross-fitting with the held-out random effect
+predicted as 0 means it does not do so for the held-out patient. v2 shows the test
+when that stated intent is actually realised. v3 exists because the two tiers share
+`z(G)` by construction, so v3 is the only version in which the targets share no
+component.
+
+The permutation null samples gene sets of the observed sizes from **each arm's own
+eligible universe** — Tier C's excludes chr7/chr9p/chr10 — because a shared
+universe would misstate the chance overlap.
+
+### (b) Fold imbalance: Nadeau-Bengio understates variance here
+
+Per-fold Stage B results are reported **individually** (§4.6) in
+`results/tables/stage_b_folds.csv`, not collapsed to a mean.
+
+The Nadeau-Bengio correction `1/n + 1/(n-1)` assumes **exchangeable folds**. These
+folds are not exchangeable. Across 1,413 usable metacells:
+
+- patient 9 contributes **215 units, 15% of all data**; the top two contribute 29%;
+- five patients contribute between 4 and 10 units each;
+- median 49, range 4–215.
+
+Holding out patient 9 removes 15% of the training data; holding out patient 10
+removes 0.3%. Fold-to-fold variance is therefore driven partly by how much data
+each fold removes, which the correction does not model. **The correction
+understates variance in this cohort**, and every LOPO-derived interval should be
+read as narrower than the truth.
+
+**No capping or rebalancing was applied.** Reweighting or truncating patients after
+seeing the distribution would be a post-hoc change to fold structure, which is
+exactly the kind of data-dependent choice the frozen fold definition exists to
+prevent. The imbalance is reported, not corrected.
+
+### (c) H1 resample simplification
+
+Each of the 200 paired resamples fits ElasticNet **once**, at the alpha carried
+over from the full-data outer folds, rather than repeating the full
+LOPO-plus-stability-selection procedure 200 times, which is not computable in the
+time available.
+
+**Direction of the effect:** a single-fit gene list is noisier than a
+stability-selected one, so per-resample replication rates are more variable and the
+dR interval is **wider**, not narrower. The simplification cannot manufacture a
+significant H1 result; it can only make one harder to obtain.
+
+CGGA verdicts are computed **once** across the eligible gene universe rather than
+per resample. This is exact, not an approximation: whether a gene replicates in
+CGGA does not depend on which discovery resample selected it.
+
+
 ## 2026-08-25 17:54 UTC — Stage A is predominantly patient-level centring, and the two tiers share G
 
 - **Affects:** interpretation of H1 and, more seriously, of **H3**. No parameter changes.
