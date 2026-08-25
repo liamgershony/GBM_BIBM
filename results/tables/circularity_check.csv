@@ -1,0 +1,4 @@
+variant,role,target_correlation,n_genes_tierA,n_genes_tierC,n_overlap,jaccard_observed,jaccard_null_mean,jaccard_null_sd,jaccard_null_p95,p_value,alpha,significant
+v1,PRIMARY (pre-registered),0.6521,46,3,2,0.042553,0.000146,0.001737,0.0,0.000999,0.025,True
+v2,SENSITIVITY (patient-centred),0.4119,3,1,0,0.0,0.0,0.0,0.0,1.0,0.025,False
+v3,SENSITIVITY (G-removed),0.2763,43,11,2,0.038462,0.000454,0.003018,0.0,0.001998,0.025,True
