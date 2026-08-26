@@ -34,3 +34,6 @@ venv/
 
 # Run logs
 logs/
+
+# Shared copies, not source of truth
+handoff/

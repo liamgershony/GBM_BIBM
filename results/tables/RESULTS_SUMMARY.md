@@ -155,6 +155,24 @@ Roughly three quarters of the between-tier correlation is the shared G term.
 Chromosome disjointness enforced by `tests/test_chr_disjoint.py`; **7/7 tests
 pass**, including that chr9q remains eligible.
 
+**Genes in the disjoint set S** (`src/_genome.py` + `configs/pipeline_config.yaml`,
+resolved against cytoband hg38):
+
+| Region | Genes | In S |
+|---|---|---|
+| chr7 (whole) | 921 | 921 |
+| chr9**p** (arm only) | 228 | 228 |
+| chr9**q** | 573 | **0** — remains eligible |
+| chr10 (whole) | 801 | 801 |
+| **total in S** | | **1,950** |
+
+Excluding all of chr9 rather than 9p alone would discard **573** eligible genes for
+no methodological benefit. Eligible universes: **33,694** genes for Tier A,
+**31,744** for Tier C.
+
+**Fold sizes:** patient 9 contributes 206 of 1,413 metacells (**14.6%**), patient
+14 contributes 189; the five smallest patients contribute between 4 and 10 each.
+
 **Selected gene counts** (`stage_b_summary.json`, `results/gene_lists/`):
 
 | Arm | 30% | 50% | 80% |
