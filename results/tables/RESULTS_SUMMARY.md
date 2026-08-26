@@ -109,9 +109,11 @@ algebraic identity. **O was dropped** per the §9.1 contingency and the score is
 named **Tier A-reduced**. A transport-cost alternative was computed and explicitly
 **not** substituted.
 
-**Metacells:** SEACells converged in 33/42 patient-timepoint groups; the k-means
-contingency fired in 9 (7 time-box, 2 numerical), recorded per group in
+**Metacells (run 1, the reported run):** SEACells converged in **35 of 42**
+patient-timepoint groups; the §9.1 k-means contingency fired in **7**, all from a
+numerical `RuntimeWarning` and **none from the time box**. Recorded per group in
 `metacell_catalog.csv`. 2,426 metacells, median 30.0 nuclei each.
+(An earlier, discarded metacell run gave 33/42 and is not the reported run.)
 
 ---
 
@@ -313,11 +315,24 @@ Reproduces exactly, or to floating-point noise:
 
 `src/03_metacells_ot.py` time-boxes SEACells at **180 seconds of wall clock** per
 patient-timepoint and substitutes k-means on expiry. Wall clock depends on machine
-load, so the fallback set changes between runs: run 1 used SEACells for 35 of 42
-groups, run 2 for 36, and **different groups** fell back (patients 9, 19 and 20
-Recurrent in run 1; patients 5 Recurrent and 20 Primary in run 2). A different
-metacell partition changes the Stage B units, hence the per-fold HVGs, hence the
-selected genes. SEACells' own convergence path is not fully seeded either.
+load, so the fallback set changes between runs.
+
+**Two distinct sources, both present:**
+
+| | run 1 (reported) | run 2 |
+|---|---|---|
+| SEACells converged | 35/42 | 36/42 |
+| k-means, numerical `RuntimeWarning` | 7 | 4 |
+| k-means, **wall-clock `TimeoutError`** | **0** | **2** |
+
+Run 1 had *no* timeouts, so the time box alone does not explain the difference.
+SEACells' own convergence path is also not fully seeded — the `RuntimeWarning`
+count moved 7 → 4 with no timeout involved. **Both the wall-clock criterion and
+SEACells' internal non-determinism contribute.**
+
+The groups that fell back differ too: patients 9, 19 and 20 (Recurrent) in run 1;
+patients 5 (Recurrent) and 20 (Primary) in run 2. A different metacell partition
+changes the Stage B units, hence the per-fold HVGs, hence the selected genes.
 
 ### Every conclusion is stable across both runs
 
